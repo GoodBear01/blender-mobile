@@ -26,8 +26,12 @@ if(NOT DEFINED LIBDIR)
   set(LIBDIR ${CMAKE_SOURCE_DIR}/lib/ios_arm64)
 endif()
 
-if(NOT EXISTS "${LIBDIR}")
-  message(WARNING "iOS LIBDIR does not exist yet: ${LIBDIR}")
+if(NOT EXISTS "${LIBDIR}/zlib" AND NOT EXISTS "${LIBDIR}/sdl")
+  message(FATAL_ERROR
+    "iOS libraries are missing at ${LIBDIR}.\n"
+    "That empty folder is why cmake prints a wall of find_package errors.\n"
+    "For a phone install today, open ios/BlenderMobile.xcodeproj (the stub).\n"
+    "For the full editor, run ./ios/scripts/build_deps.sh on this Mac first.")
 endif()
 
 message(STATUS "iOS LIBDIR: ${LIBDIR}")

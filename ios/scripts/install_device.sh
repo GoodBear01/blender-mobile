@@ -34,7 +34,8 @@ echo "== devices =="
 xcrun devicectl list devices || true
 xcrun xctrace list devices 2>/dev/null || true
 
-echo "== building (unsigned until TEAM is applied) =="
+echo "== building the iOS stub (ios/BlenderMobile.xcodeproj) =="
+echo "This does not compile blender-5.2.0. Full editor needs ./ios/scripts/build_deps.sh first."
 xcodebuild \
   -project "$PROJ" \
   -scheme BlenderMobile \

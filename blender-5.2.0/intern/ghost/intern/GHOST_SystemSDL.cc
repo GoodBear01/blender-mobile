@@ -177,7 +177,7 @@ GHOST_IContext *GHOST_SystemSDL::createOffscreenContext(GHOST_GPUSettings gpu_se
     case GHOST_kDrawingContextTypeVulkan: {
       GHOST_Context *context = new GHOST_ContextVK(context_params_offscreen,
 #ifndef _WIN32
-#  ifndef __APPLE__
+#  if !defined(__APPLE__) || defined(BLENDER_IOS)
                                                    GHOST_kVulkanPlatformHeadless,
                                                    0,
                                                    nullptr,

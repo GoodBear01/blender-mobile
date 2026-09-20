@@ -325,7 +325,7 @@ void main_python_exit()
 /** \name Main Function
  * \{ */
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(BLENDER_IOS)
 extern "C" int GHOST_HACK_getFirstFile(char buf[]);
 #endif
 
@@ -480,7 +480,8 @@ int main(int argc,
 
   main_callback_setup();
 
-#if defined(__APPLE__) && !defined(WITH_PYTHON_MODULE) && !defined(WITH_HEADLESS)
+#if defined(__APPLE__) && !defined(BLENDER_IOS) && !defined(WITH_PYTHON_MODULE) && \
+    !defined(WITH_HEADLESS)
   /* Patch to ignore argument finder gives us (PID?). */
   if (argc == 2 && STRPREFIX(argv[1], "-psn_")) {
     static char firstfilebuf[512];

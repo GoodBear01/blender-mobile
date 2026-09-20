@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../GHOST_Types.hh"
+#include "GHOST_Mobile.hh"
 #include "GHOST_System.hh"
 #include "GHOST_WindowNULL.hh"
 
@@ -126,7 +127,7 @@ class GHOST_SystemHeadless : public GHOST_System {
 #  ifdef _WIN32
         GHOST_Context *context = new GHOST_ContextVK(
             context_params_offscreen, (HWND)0, 1, 2, gpu_settings.preferred_device);
-#  elif defined(__APPLE__)
+#  elif defined(__APPLE__) && !defined(BLENDER_IOS)
         GHOST_Context *context = new GHOST_ContextVK(
             context_params_offscreen, nullptr, 1, 2, gpu_settings.preferred_device);
 #  else

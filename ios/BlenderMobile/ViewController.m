@@ -1,6 +1,5 @@
 #import "ViewController.h"
 #import "BlenderHost.h"
-#import "DocumentPicker.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 @implementation ViewController

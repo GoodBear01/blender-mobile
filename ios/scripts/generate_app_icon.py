@@ -24,12 +24,12 @@ def write_png(path: Path, size: int = 1024) -> None:
             dy = y - cy
             d = (dx * dx + dy * dy) ** 0.5
             if inner <= d <= outer:
-                raw.extend((235, 115, 18, 255))
+                raw.extend((235, 115, 18))
             elif d < inner:
-                raw.extend((18, 18, 18, 255))
+                raw.extend((18, 18, 18))
             else:
-                raw.extend((0, 0, 0, 255))
-    ihdr = struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)
+                raw.extend((0, 0, 0))
+    ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
     png = b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", ihdr) + png_chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + png_chunk(b"IEND", b"")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(png)

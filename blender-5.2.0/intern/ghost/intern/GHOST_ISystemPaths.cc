@@ -11,15 +11,14 @@
  */
 
 #include "GHOST_ISystemPaths.hh"
+#include "GHOST_Mobile.hh"
 
 #ifdef WIN32
 #  include "GHOST_SystemPathsWin32.hh"
+#elif defined(__APPLE__) && !defined(BLENDER_IOS)
+#  include "GHOST_SystemPathsCocoa.hh"
 #else
-#  ifdef __APPLE__
-#    include "GHOST_SystemPathsCocoa.hh"
-#  else
-#    include "GHOST_SystemPathsUnix.hh"
-#  endif
+#  include "GHOST_SystemPathsUnix.hh"
 #endif
 
 GHOST_ISystemPaths *GHOST_ISystemPaths::system_paths_ = nullptr;
@@ -30,12 +29,10 @@ GHOST_TSuccess GHOST_ISystemPaths::create()
   if (!system_paths_) {
 #ifdef WIN32
     system_paths_ = new GHOST_SystemPathsWin32();
-#else
-#  ifdef __APPLE__
+#elif defined(__APPLE__) && !defined(BLENDER_IOS)
     system_paths_ = new GHOST_SystemPathsCocoa();
-#  else
+#else
     system_paths_ = new GHOST_SystemPathsUnix();
-#  endif
 #endif
     success = system_paths_ != nullptr ? GHOST_kSuccess : GHOST_kFailure;
   }

@@ -1,7 +1,10 @@
 #import "BlenderHost.h"
-#import "DocumentPicker.h"
+#import <stdlib.h>
+#import <unistd.h>
 
-extern int blender_ios_main(int argc, char **argv) __attribute__((weak));
+#ifdef BLENDER_IOS_HAS_NATIVE
+extern int blender_ios_main(int argc, char **argv);
+#endif
 
 static NSString *const kRuntimeVersion = @"5.2.0-ios1";
 
@@ -63,20 +66,27 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios1";
 
 + (BOOL)canLaunchBlender
 {
-  return blender_ios_main != NULL;
+#ifdef BLENDER_IOS_HAS_NATIVE
+  return YES;
+#else
+  return NO;
+#endif
 }
 
 + (int)runBlenderWithArgc:(int)argc argv:(char **)argv
 {
-  if (blender_ios_main == NULL) {
-    return 1;
-  }
+#ifdef BLENDER_IOS_HAS_NATIVE
   static const char *fallback[] = {"blender", "--gpu-backend", "vulkan", NULL};
   if (argc < 1 || argv == NULL) {
     argc = 3;
     argv = (char **)fallback;
   }
   return blender_ios_main(argc, argv);
+#else
+  (void)argc;
+  (void)argv;
+  return 1;
+#endif
 }
 
 @end

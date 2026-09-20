@@ -6,6 +6,25 @@ You **cannot** compile or sign this on Windows. Copy this repo to a Mac with Xco
 
 This first Xcode target is a landscape stub so you can prove the install path the same day. Full Blender loads only after you build `lib/ios_arm64` and `libblender` on that Mac.
 
+## If Xcode shows a wall of errors
+
+Open **only** this project:
+
+`ios/BlenderMobile.xcodeproj`
+
+Do **not** open `blender-5.2.0/` in Xcode and do **not** run `configure_blender.sh` yet. Those paths compile the full editor and need iOS libraries that are not in the GitHub clone. CMake then prints dozens of `Could NOT find ...` errors.
+
+In the stub project:
+
+1. Select the **BlenderMobile** target (not the blender-5.2.0 folder)
+2. Signing & Capabilities → **Team** → your Apple ID
+3. Product → Destination → your iPhone
+4. Product → Run
+
+A signing error about Team is one red issue, not a compile flood. Pick a Team and it goes away.
+
+After `git pull`, if Xcode still shows old errors: Product → Clean Build Folder, then Run again.
+
 ## Install the stub today
 
 Developer Mode only lets the phone accept a **signed** build. It is not Android `adb install`. You still need Xcode’s iOS SDK on a Mac to compile. You do not have to open the Xcode window.
@@ -21,6 +40,7 @@ On the iPhone (iOS 16+):
 Do this **once** so the Mac has a signing identity: Xcode → Settings → Accounts → add your Apple ID. Copy the 10-character **Team ID**. After that, close Xcode.
 
 ```bash
+git pull
 chmod +x ios/scripts/*.sh
 TEAM=ABCDE12345 ./ios/scripts/install_device.sh
 ```
@@ -60,9 +80,9 @@ chmod +x ios/scripts/*.sh
 
 `build_deps.sh` uses the same lite set as Android (SDL3, zlib, png, Vulkan headers, MoltenVK, Python, …) and installs into `blender-5.2.0/lib/ios_arm64`.
 
-Then add `libblender`, SDL3, and MoltenVK to the app target (Embed & Sign), copy `ios/BlenderMobile/Runtime` into the bundle, and run `TEAM=... ./ios/scripts/install_device.sh` again.
+Then add `libblender`, SDL3, and MoltenVK to the app target (Embed & Sign), add `-DBLENDER_IOS_HAS_NATIVE` to Other C Flags, copy `ios/BlenderMobile/Runtime` into the bundle, and run `TEAM=... ./ios/scripts/install_device.sh` again.
 
-`main` stays in the app. When `blender_ios_main` is linked, the process starts Blender (SDL + MoltenVK) instead of the stub screen.
+`main` stays in the app. When `BLENDER_IOS_HAS_NATIVE` is set, the process starts Blender (SDL + MoltenVK) instead of the stub screen.
 
 ## Graphics and files
 

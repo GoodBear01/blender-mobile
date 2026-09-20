@@ -36,6 +36,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 See [ios/README.md](ios/README.md). Compile and sign on a Mac. Developer Mode does not replace signing.
 
+Open **only** `ios/BlenderMobile.xcodeproj`. Opening `blender-5.2.0/` in Xcode compiles the desktop editor and will dump a wall of missing-library errors.
+
 ```bash
 git clone https://github.com/GoodBear01/blender-mobile.git
 cd blender-mobile
