@@ -278,6 +278,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                     buttonState |= 0x08;
                 }
 
+                SDLActivity.reportPenTilt(event, i);
                 SDLActivity.onNativePen(pointerId, SDLActivity.getMotionListener().getPenDeviceType(event.getDevice()), buttonState, action, x, y, p);
             } else { // MotionEvent.TOOL_TYPE_FINGER or MotionEvent.TOOL_TYPE_UNKNOWN
                 pointerId = event.getPointerId(i);
@@ -394,16 +395,31 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                     return true;
 
                 case MotionEvent.ACTION_HOVER_MOVE:
-                case MotionEvent.ACTION_MOVE:
+                case MotionEvent.ACTION_MOVE: {
+                    int toolType = event.getToolType(i);
                     x = event.getX(i);
                     y = event.getY(i);
-                    SDLActivity.onNativeMouse(0, action, x, y, true);
+                    if (toolType == MotionEvent.TOOL_TYPE_STYLUS ||
+                        toolType == MotionEvent.TOOL_TYPE_ERASER) {
+                        float p = event.getPressure(i);
+                        if (p > 1.0f) {
+                            p = 1.0f;
+                        }
+                        int buttons = (event.getButtonState() >> 4) |
+                                (1 << (toolType == MotionEvent.TOOL_TYPE_STYLUS ? 0 : 30));
+                        SDLActivity.reportPenTilt(event, i);
+                        SDLActivity.onNativePen(event.getPointerId(i),
+                                SDLActivity.getMotionListener().getPenDeviceType(event.getDevice()),
+                                buttons, action, x, y, p);
+                    } else {
+                        SDLActivity.onNativeMouse(0, action, x, y, true);
+                    }
                     return true;
+                }
 
                 case MotionEvent.ACTION_BUTTON_PRESS:
-                case MotionEvent.ACTION_BUTTON_RELEASE:
-
-                    // Change our action value to what SDL's code expects.
+                case MotionEvent.ACTION_BUTTON_RELEASE: {
+                    int toolType = event.getToolType(i);
                     if (action == MotionEvent.ACTION_BUTTON_PRESS) {
                         action = MotionEvent.ACTION_DOWN;
                     } else { /* MotionEvent.ACTION_BUTTON_RELEASE */
@@ -412,10 +428,23 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
                     x = event.getX(i);
                     y = event.getY(i);
-                    int button = event.getButtonState();
-
-                    SDLActivity.onNativeMouse(button, action, x, y, true);
+                    if (toolType == MotionEvent.TOOL_TYPE_STYLUS ||
+                        toolType == MotionEvent.TOOL_TYPE_ERASER) {
+                        float p = event.getPressure(i);
+                        if (p > 1.0f) {
+                            p = 1.0f;
+                        }
+                        int buttons = (event.getButtonState() >> 4) |
+                                (1 << (toolType == MotionEvent.TOOL_TYPE_STYLUS ? 0 : 30));
+                        SDLActivity.reportPenTilt(event, i);
+                        SDLActivity.onNativePen(event.getPointerId(i),
+                                SDLActivity.getMotionListener().getPenDeviceType(event.getDevice()),
+                                buttons, action, x, y, p);
+                    } else {
+                        SDLActivity.onNativeMouse(event.getButtonState(), action, x, y, true);
+                    }
                     return true;
+                }
             }
         }
 

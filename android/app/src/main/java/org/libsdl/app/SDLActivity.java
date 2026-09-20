@@ -33,6 +33,7 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.PointerIcon;
 import android.view.Surface;
 import android.view.View;
@@ -1076,6 +1077,21 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                                             int action, float x,
                                             float y, float p);
     public static native void onNativePen(int penId, int device_type, int button, int action, float x, float y, float p);
+    /* Implemented in libblender (GHOST). SDL only forwards pressure. */
+    public static native void onNativePenTilt(float xtilt, float ytilt);
+
+    public static void reportPenTilt(MotionEvent event, int pointerIndex) {
+        float tilt = event.getAxisValue(MotionEvent.AXIS_TILT, pointerIndex);
+        float orientation = event.getAxisValue(MotionEvent.AXIS_ORIENTATION, pointerIndex);
+        float sinTilt = (float)Math.sin(tilt);
+        float xtilt = (float)Math.sin(orientation) * sinTilt;
+        float ytilt = (float)-Math.cos(orientation) * sinTilt;
+        try {
+            onNativePenTilt(xtilt, ytilt);
+        } catch (UnsatisfiedLinkError ignored) {
+            /* libblender is not loaded until the SDL thread starts. */
+        }
+    }
     public static native void onNativeAccel(float x, float y, float z);
     public static native void onNativeClipboardChanged();
     public static native void onNativeSurfaceCreated();

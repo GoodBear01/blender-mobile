@@ -6,10 +6,15 @@
  * \ingroup GHOST
  */
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+
+#ifdef __ANDROID__
+#  include <jni.h>
+#endif
 
 #include "GHOST_ContextSDL.hh"
 #ifdef WITH_VULKAN_BACKEND
@@ -809,6 +814,217 @@ bool GHOST_SystemSDL::processAndroidTouchAt(const uint64_t event_ms,
   return false;
 }
 
+#ifdef BLENDER_MOBILE
+#ifdef __ANDROID__
+static float g_android_pen_xtilt = 0.0f;
+static float g_android_pen_ytilt = 0.0f;
+
+extern "C" JNIEXPORT void JNICALL Java_org_libsdl_app_SDLActivity_onNativePenTilt(JNIEnv * /*env*/,
+                                                                                  jclass /*cls*/,
+                                                                                  jfloat xtilt,
+                                                                                  jfloat ytilt)
+{
+  g_android_pen_xtilt = std::clamp(float(xtilt), -1.0f, 1.0f);
+  g_android_pen_ytilt = std::clamp(float(ytilt), -1.0f, 1.0f);
+}
+#endif
+
+GHOST_TabletData GHOST_SystemSDL::penTabletFromState(const bool eraser) const
+{
+  GHOST_TabletData tablet = pen_tablet_;
+  tablet.Active = eraser ? GHOST_kTabletModeEraser : GHOST_kTabletModeStylus;
+#ifdef __ANDROID__
+  tablet.Xtilt = g_android_pen_xtilt;
+  tablet.Ytilt = g_android_pen_ytilt;
+#endif
+  return tablet;
+}
+
+void GHOST_SystemSDL::penResetState()
+{
+  pen_in_proximity_ = false;
+  pen_tip_down_ = false;
+  pen_button1_down_ = false;
+  pen_button2_down_ = false;
+  pen_tablet_ = GHOST_TABLET_DATA_NONE;
+#ifdef __ANDROID__
+  g_android_pen_xtilt = 0.0f;
+  g_android_pen_ytilt = 0.0f;
+#endif
+}
+
+void GHOST_SystemSDL::processAndroidPenEvent(const SDL_Event *sdl_event)
+{
+  const uint64_t event_ms = SDL_NS_TO_MS(sdl_event->common.timestamp);
+
+  SDL_WindowID window_id = 0;
+  float x = float(pen_last_x_);
+  float y = float(pen_last_y_);
+  SDL_PenInputFlags flags = 0;
+  bool eraser = (pen_tablet_.Active == GHOST_kTabletModeEraser);
+
+  switch (sdl_event->type) {
+    case SDL_EVENT_PEN_PROXIMITY_IN:
+    case SDL_EVENT_PEN_PROXIMITY_OUT:
+      window_id = sdl_event->pproximity.windowID;
+      break;
+    case SDL_EVENT_PEN_DOWN:
+    case SDL_EVENT_PEN_UP:
+      window_id = sdl_event->ptouch.windowID;
+      x = sdl_event->ptouch.x;
+      y = sdl_event->ptouch.y;
+      flags = sdl_event->ptouch.pen_state;
+      eraser = sdl_event->ptouch.eraser || ((flags & SDL_PEN_INPUT_ERASER_TIP) != 0);
+      break;
+    case SDL_EVENT_PEN_BUTTON_DOWN:
+    case SDL_EVENT_PEN_BUTTON_UP:
+      window_id = sdl_event->pbutton.windowID;
+      x = sdl_event->pbutton.x;
+      y = sdl_event->pbutton.y;
+      flags = sdl_event->pbutton.pen_state;
+      eraser = (flags & SDL_PEN_INPUT_ERASER_TIP) != 0;
+      break;
+    case SDL_EVENT_PEN_MOTION:
+      window_id = sdl_event->pmotion.windowID;
+      x = sdl_event->pmotion.x;
+      y = sdl_event->pmotion.y;
+      flags = sdl_event->pmotion.pen_state;
+      eraser = (flags & SDL_PEN_INPUT_ERASER_TIP) != 0;
+      break;
+    case SDL_EVENT_PEN_AXIS:
+      window_id = sdl_event->paxis.windowID;
+      x = sdl_event->paxis.x;
+      y = sdl_event->paxis.y;
+      flags = sdl_event->paxis.pen_state;
+      eraser = (flags & SDL_PEN_INPUT_ERASER_TIP) != 0;
+      break;
+    default:
+      return;
+  }
+
+  GHOST_WindowSDL *window = findGhostWindowOrPrimary(SDL_GetWindowFromID_fallback(window_id));
+  if (window == nullptr) {
+    return;
+  }
+  SDL_Window *sdl_win = window->getSDLWindow();
+  if (sdl_win == nullptr) {
+    return;
+  }
+
+  int32_t x_root = 0;
+  int32_t y_root = 0;
+  client_to_root(sdl_win, x, y, x_root, y_root);
+  pen_last_x_ = x_root;
+  pen_last_y_ = y_root;
+
+  auto push_cursor = [&](const GHOST_TabletData &tablet) {
+    pushEvent(std::make_unique<GHOST_EventCursor>(
+        event_ms, GHOST_kEventCursorMove, window, x_root, y_root, tablet));
+  };
+  auto push_button = [&](const GHOST_TEventType type,
+                         const GHOST_TButton button,
+                         const GHOST_TabletData &tablet) {
+    pushEvent(std::make_unique<GHOST_EventButton>(event_ms, type, window, button, tablet));
+  };
+
+  switch (sdl_event->type) {
+    case SDL_EVENT_PEN_PROXIMITY_IN:
+      pen_in_proximity_ = true;
+      pen_tablet_ = penTabletFromState(false);
+      pen_tablet_.Pressure = 0.0f;
+      push_cursor(pen_tablet_);
+      break;
+
+    case SDL_EVENT_PEN_PROXIMITY_OUT:
+      if (pen_tip_down_) {
+        push_button(GHOST_kEventButtonUp, GHOST_kButtonMaskLeft, penTabletFromState(eraser));
+      }
+      if (pen_button1_down_) {
+        push_button(GHOST_kEventButtonUp, GHOST_kButtonMaskRight, penTabletFromState(eraser));
+      }
+      if (pen_button2_down_) {
+        push_button(GHOST_kEventButtonUp, GHOST_kButtonMaskMiddle, penTabletFromState(eraser));
+      }
+      penResetState();
+      push_cursor(GHOST_TABLET_DATA_NONE);
+      break;
+
+    case SDL_EVENT_PEN_AXIS:
+      if (sdl_event->paxis.axis == SDL_PEN_AXIS_PRESSURE) {
+        pen_tablet_.Pressure = std::clamp(sdl_event->paxis.value, 0.0f, 1.0f);
+      }
+      else if (sdl_event->paxis.axis == SDL_PEN_AXIS_XTILT) {
+        pen_tablet_.Xtilt = std::clamp(sdl_event->paxis.value / 90.0f, -1.0f, 1.0f);
+#ifdef __ANDROID__
+        g_android_pen_xtilt = pen_tablet_.Xtilt;
+#endif
+      }
+      else if (sdl_event->paxis.axis == SDL_PEN_AXIS_YTILT) {
+        pen_tablet_.Ytilt = std::clamp(sdl_event->paxis.value / 90.0f, -1.0f, 1.0f);
+#ifdef __ANDROID__
+        g_android_pen_ytilt = pen_tablet_.Ytilt;
+#endif
+      }
+      pen_tablet_ = penTabletFromState(eraser);
+      pen_in_proximity_ = true;
+      push_cursor(pen_tablet_);
+      break;
+
+    case SDL_EVENT_PEN_MOTION:
+      pen_in_proximity_ = true;
+      pen_tablet_ = penTabletFromState(eraser);
+      if ((flags & SDL_PEN_INPUT_DOWN) == 0 && !pen_tip_down_) {
+        pen_tablet_.Pressure = 0.0f;
+      }
+      push_cursor(pen_tablet_);
+      break;
+
+    case SDL_EVENT_PEN_DOWN:
+      pen_in_proximity_ = true;
+      pen_tablet_ = penTabletFromState(eraser);
+      if (pen_tablet_.Pressure <= 0.0f) {
+        pen_tablet_.Pressure = 1.0f;
+      }
+      push_cursor(pen_tablet_);
+      if (!pen_tip_down_) {
+        push_button(GHOST_kEventButtonDown, GHOST_kButtonMaskLeft, pen_tablet_);
+        pen_tip_down_ = true;
+      }
+      break;
+
+    case SDL_EVENT_PEN_UP:
+      pen_tablet_ = penTabletFromState(eraser);
+      push_cursor(pen_tablet_);
+      if (pen_tip_down_) {
+        push_button(GHOST_kEventButtonUp, GHOST_kButtonMaskLeft, pen_tablet_);
+        pen_tip_down_ = false;
+      }
+      pen_tablet_.Pressure = 0.0f;
+      break;
+
+    case SDL_EVENT_PEN_BUTTON_DOWN:
+    case SDL_EVENT_PEN_BUTTON_UP: {
+      pen_in_proximity_ = true;
+      pen_tablet_ = penTabletFromState(eraser);
+      const bool down = sdl_event->type == SDL_EVENT_PEN_BUTTON_DOWN;
+      const GHOST_TButton button = (sdl_event->pbutton.button == 1) ? GHOST_kButtonMaskRight :
+                                                                      GHOST_kButtonMaskMiddle;
+      bool &held = (sdl_event->pbutton.button == 1) ? pen_button1_down_ : pen_button2_down_;
+      if (held == down) {
+        break;
+      }
+      push_cursor(pen_tablet_);
+      push_button(down ? GHOST_kEventButtonDown : GHOST_kEventButtonUp, button, pen_tablet_);
+      held = down;
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+#endif
+
 void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
 {
   std::unique_ptr<GHOST_Event> g_event = nullptr;
@@ -911,6 +1127,19 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
       break;
     }
 
+#ifdef BLENDER_MOBILE
+    case SDL_EVENT_PEN_PROXIMITY_IN:
+    case SDL_EVENT_PEN_PROXIMITY_OUT:
+    case SDL_EVENT_PEN_DOWN:
+    case SDL_EVENT_PEN_UP:
+    case SDL_EVENT_PEN_BUTTON_DOWN:
+    case SDL_EVENT_PEN_BUTTON_UP:
+    case SDL_EVENT_PEN_MOTION:
+    case SDL_EVENT_PEN_AXIS:
+      processAndroidPenEvent(sdl_event);
+      break;
+#endif
+
     case SDL_EVENT_MOUSE_MOTION: {
       const SDL_MouseMotionEvent &sdl_sub_evt = sdl_event->motion;
       const uint64_t event_ms = SDL_NS_TO_MS(sdl_sub_evt.timestamp);
@@ -924,8 +1153,10 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
       int32_t y_root = 0;
       client_to_root(sdl_win, sdl_sub_evt.x, sdl_sub_evt.y, x_root, y_root);
 #ifdef BLENDER_MOBILE
-      /* Ignore mouse packets synthesized from fingers (we handle FINGER_*). */
-      if (sdl_sub_evt.which == SDL_TOUCH_MOUSEID || touch_using_fingers_) {
+      /* Ignore mouse packets synthesized from fingers or the stylus. */
+      if (sdl_sub_evt.which == SDL_TOUCH_MOUSEID || sdl_sub_evt.which == SDL_PEN_MOUSEID ||
+          touch_using_fingers_ || pen_in_proximity_)
+      {
         break;
       }
 #endif
@@ -997,7 +1228,9 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
       }
 
 #ifdef BLENDER_MOBILE
-      if (sdl_sub_evt.which == SDL_TOUCH_MOUSEID || touch_using_fingers_) {
+      if (sdl_sub_evt.which == SDL_TOUCH_MOUSEID || sdl_sub_evt.which == SDL_PEN_MOUSEID ||
+          touch_using_fingers_ || pen_in_proximity_)
+      {
         break;
       }
 #endif
@@ -1080,6 +1313,9 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
       GHOST_WindowSDL *window = findGhostWindowOrPrimary(
           SDL_GetWindowFromID_fallback(finger.windowID));
       if (window == nullptr) {
+        break;
+      }
+      if (finger.touchID == SDL_PEN_TOUCHID) {
         break;
       }
       SDL_Window *sdl_win = window->getSDLWindow();

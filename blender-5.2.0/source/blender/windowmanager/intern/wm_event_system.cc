@@ -6602,7 +6602,10 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
       event.type = MOUSEMOVE;
       event.val = KM_NOTHING;
 #ifdef BLENDER_MOBILE
-      wm_android_navigate_from_move(win, event.xy, event_time_ms);
+      /* Stylus / S Pen uses tablet data; do not remap it to finger orbit. */
+      if (event.tablet.active == EVT_TABLET_NONE) {
+        wm_android_navigate_from_move(win, event.xy, event_time_ms);
+      }
 #endif
       {
         wmEvent *event_new = wm_event_add_mousemove(win, &event);
@@ -6722,7 +6725,14 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
       wm_eventemulation(&event, false);
 #ifdef BLENDER_MOBILE
       bool skip_add = false;
-      if (event.type == LEFTMOUSE && event.val == KM_PRESS) {
+      if (event.tablet.active != EVT_TABLET_NONE) {
+        wm_event_state_update_and_click_set(&event,
+                                            event_time_ms,
+                                            event_state,
+                                            event_state_prev_press_time_ms_p,
+                                            GHOST_TEventType(type));
+      }
+      else if (event.type == LEFTMOUSE && event.val == KM_PRESS) {
         android_press_time_ms = event_time_ms;
         android_deferred_lmb = wm_android_should_defer_lmb(win, event_state->xy);
         android_orbiting = false;

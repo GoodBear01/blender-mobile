@@ -11,6 +11,7 @@
 
 #include "../GHOST_Types.hh"
 #include "GHOST_Event.hh"
+#include "GHOST_Mobile.hh"
 #include "GHOST_System.hh"
 #include "GHOST_TimerManager.hh"
 #include "GHOST_WindowSDL.hh"
@@ -135,4 +136,19 @@ class GHOST_SystemSDL : public GHOST_System {
                              int32_t x_root,
                              int32_t y_root,
                              TouchPointerPhase phase);
+
+#ifdef BLENDER_MOBILE
+  /* Stylus / S Pen / USI — tablet payload, not finger-orbit remaps. */
+  bool pen_in_proximity_ = false;
+  bool pen_tip_down_ = false;
+  bool pen_button1_down_ = false;
+  bool pen_button2_down_ = false;
+  GHOST_TabletData pen_tablet_ = GHOST_TABLET_DATA_NONE;
+  int32_t pen_last_x_ = 0;
+  int32_t pen_last_y_ = 0;
+
+  void processAndroidPenEvent(const SDL_Event *sdl_event);
+  GHOST_TabletData penTabletFromState(bool eraser) const;
+  void penResetState();
+#endif
 };
