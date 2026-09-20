@@ -1,4 +1,5 @@
 .deps/
+.tools/
 BlenderMobile/Runtime/
 Vendor/*.dylib
 Vendor/*.framework

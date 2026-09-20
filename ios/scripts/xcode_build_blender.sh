@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Called by Xcode. Compiles the full editor. Never writes back into ios/scripts.
 set -e
+trap 'echo "error: failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 
 if [ -n "${SRCROOT:-}" ]; then
   ROOT="$(cd "${SRCROOT}/.." && pwd)"
@@ -9,9 +10,17 @@ elif [ -z "${ROOT:-}" ]; then
 fi
 export ROOT
 
+echo "note: ROOT=$ROOT"
+echo "note: SRCROOT=${SRCROOT:-}"
+
 if [ ! -d "$ROOT/blender-5.2.0" ]; then
   echo "error: blender-5.2.0 not found next to ios/. Open ios/BlenderMobile.xcodeproj from the repo." >&2
   echo "error: ROOT=$ROOT SRCROOT=${SRCROOT:-}" >&2
+  exit 1
+fi
+
+if [ ! -d "$ROOT/ios/scripts" ]; then
+  echo "error: ios/scripts is missing under $ROOT" >&2
   exit 1
 fi
 
@@ -23,6 +32,11 @@ for f in "$ROOT/ios/scripts/"*.sh; do
   /usr/bin/tr -d '\r' < "$f" > "$WORK/$(basename "$f")"
   chmod +x "$WORK/$(basename "$f")" || true
 done
+if [ ! -f "$WORK/xcode_env.sh" ]; then
+  echo "error: failed to stage ios scripts into $WORK" >&2
+  ls -la "$ROOT/ios/scripts" >&2 || true
+  exit 1
+fi
 export IOS_SCRIPTS="$WORK"
 
 # shellcheck source=xcode_env.sh

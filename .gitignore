@@ -19,6 +19,7 @@ android/app/src/main/assets/blender/5.2/
 
 ios/build/
 ios/.deps/
+ios/.tools/
 ios/BlenderMobile/Runtime/
 
 *.apk

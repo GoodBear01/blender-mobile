@@ -18,7 +18,11 @@ cd blender-mobile
 
 Xcode first runs **Compile libblender** (libraries + `libblender.dylib` + scripts), then signs the app and installs it. The first Run can take **hours**. Watch the Report navigator for that phase. Later Runs only rebuild what changed.
 
-If Xcode says **PhaseScriptExecution failed**, open the Report navigator → BlenderMobile → **Compile libblender**. That log has the real error (often `brew install cmake ninja`). Then Product → Run again.
+If Xcode says **exit code 1** / PhaseScriptExecution failed, open:
+
+`~/Library/Logs/blender-ios-xcode.log`
+
+or Report navigator → **Compile libblender**. The script now downloads cmake/ninja if they are missing. Quit Xcode and Product → Run again after `git pull`.
 
 Install cmake and ninja on the Mac first (`brew install cmake ninja`). Also: `brew install molten-vk` if the MoltenVK download fails.
 
