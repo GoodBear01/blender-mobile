@@ -134,14 +134,16 @@ template<FixedString FStr> inline UString operator""_ustr()
    *  - It is valid to initialize the static variable more than once and the result will still be
    *    the same because the string does not change. So a double checked lock is not needed.
    */
-  /* This is initialized to null by default. */
-  static std::atomic<UString> static_ustr;
-  UString ustr = static_ustr.load(std::memory_order_relaxed);
-  if (ustr.c_str() == nullptr) [[unlikely]] {
-    ustr = UString::from_ptr_noinline(FStr.data);
-    static_ustr.store(ustr, std::memory_order_relaxed);
+  /* Cache the interned pointer, not UString. OpenImageIO::ustring is not
+   * trivially copyable on Apple libc++ (user-declared destructor / export
+   * macros), so std::atomic<UString> is rejected. */
+  static std::atomic<const char *> static_chars;
+  const char *chars = static_chars.load(std::memory_order_relaxed);
+  if (chars == nullptr) [[unlikely]] {
+    chars = UString::from_ptr_noinline(FStr.data).c_str();
+    static_chars.store(chars, std::memory_order_relaxed);
   }
-  return ustr;
+  return UString::from_ptr_noinline(chars);
 }
 
 /**

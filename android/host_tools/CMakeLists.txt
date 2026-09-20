@@ -27,7 +27,9 @@ if(NOT FMT_INCLUDE)
   set(FMT_INCLUDE "${BLENDER}/extern/fmtlib/include")
 endif()
 
-foreach(_lib_name openimageio imath openexr)
+# Do not add iOS OpenImageIO headers here. They are not a macOS include
+# tree, and they make blender::UString non-trivially-copyable on Apple Clang.
+foreach(_lib_name imath openexr)
   set(_lib_inc "")
   foreach(_root
       "${BLENDER}/lib/ios_arm64/${_lib_name}/include"
