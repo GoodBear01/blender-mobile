@@ -131,13 +131,11 @@ cmake_dep tiff "$(expand_package 'tiff-*.tar.gz' tiff)" "$LIBDIR/tiff" \
 
 set +o pipefail
 ZLIB_A="$(find "$LIBDIR/zlib" -name 'libz.a' | head -n 1)"
-BROTLI_A="$(find "$LIBDIR/brotli" -name 'libbrotlidec.a' | head -n 1)"
 set -o pipefail
 cmake_dep freetype "$(expand_package 'freetype-*.tar.gz' freetype)" "$LIBDIR/freetype" \
-  -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BZIP2=ON -DFT_REQUIRE_ZLIB=ON \
-  -DFT_REQUIRE_BROTLI=ON -DFT_DISABLE_PNG=ON \
-  -DZLIB_INCLUDE_DIR="$LIBDIR/zlib/include" -DZLIB_LIBRARY="$ZLIB_A" \
-  -DBROTLIDEC_INCLUDE_DIRS="$LIBDIR/brotli/include" -DBROTLIDEC_LIBRARIES="$BROTLI_A"
+  -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BZIP2=ON -DFT_DISABLE_BROTLI=ON \
+  -DFT_DISABLE_PNG=ON -DFT_REQUIRE_ZLIB=ON \
+  -DZLIB_INCLUDE_DIR="$LIBDIR/zlib/include" -DZLIB_LIBRARY="$ZLIB_A"
 
 cmake_dep imath "$(expand_package 'imath-*.tar.gz' imath)" "$LIBDIR/imath" \
   -DBUILD_TESTING=OFF
