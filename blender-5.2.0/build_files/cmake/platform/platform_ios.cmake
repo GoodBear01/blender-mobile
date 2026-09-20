@@ -11,6 +11,23 @@ endif()
 
 set(IOS TRUE)
 
+# Ninja does not set XCODE_VERSION. Later CMakeLists checks it.
+if(NOT XCODE_VERSION)
+  execute_process(
+    COMMAND xcodebuild -version
+    OUTPUT_VARIABLE _xcode_vers_build_nr
+    RESULT_VARIABLE _xcode_vers_result
+    ERROR_QUIET
+  )
+  if(_xcode_vers_result EQUAL 0)
+    string(REPLACE "\n" " " _xcode_vers_line "${_xcode_vers_build_nr}")
+    string(REGEX REPLACE "(.*)Xcode ([0-9\\.]+).*" "\\2" XCODE_VERSION "${_xcode_vers_line}")
+    unset(_xcode_vers_line)
+  endif()
+  unset(_xcode_vers_build_nr)
+  unset(_xcode_vers_result)
+endif()
+
 set(WITH_GHOST_X11 OFF CACHE BOOL "" FORCE)
 set(WITH_GHOST_WAYLAND OFF CACHE BOOL "" FORCE)
 set(WITH_GHOST_SDL ON CACHE BOOL "" FORCE)

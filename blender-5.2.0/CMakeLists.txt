@@ -2359,7 +2359,7 @@ if(WITH_COMPILER_SHORT_FILE_MACRO)
   )
   if(C_MACRO_PREFIX_MAP AND CXX_MACRO_PREFIX_MAP)
     if(APPLE)
-      if(XCODE AND ${XCODE_VERSION} VERSION_LESS 12.0)
+      if(XCODE AND XCODE_VERSION VERSION_LESS 12.0)
         # Developers may have say LLVM Clang-10.0.1 toolchain (which supports the flag)
         # with Xcode-11 (the Clang of which doesn't support the flag).
         message(
