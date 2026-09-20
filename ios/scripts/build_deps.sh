@@ -83,6 +83,7 @@ cmake_dep() {
     exit 1
   fi
   local bdir="$BUILD/$name"
+  rm -rf "$bdir" "$prefix"
   mkdir -p "$bdir" "$prefix"
   echo "===== Configuring $name ====="
   cmake -S "$source" -B "$bdir" \
@@ -95,6 +96,9 @@ cmake_dep() {
     -DCMAKE_FIND_ROOT_PATH="$LIBDIR" \
     -DCMAKE_POLICY_DEFAULT_CMP0074=NEW \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_SKIP_RPATH=ON \
+    -DCMAKE_SKIP_INSTALL_RPATH=ON \
+    -DCMAKE_MACOSX_RPATH=OFF \
     -DBUILD_SHARED_LIBS=OFF \
     "$@"
   echo "===== Building $name ====="
@@ -107,7 +111,8 @@ if [[ -d "$ROOT/android/.deps/src" && ! -d "$SRC/sdl3" ]]; then
   echo "Reusing extracted sources under android/.deps/src where present."
 fi
 
-cmake_dep zlib "$(expand_package 'zlib-*.tar.gz' zlib)" "$LIBDIR/zlib"
+cmake_dep zlib "$(expand_package 'zlib-*.tar.gz' zlib)" "$LIBDIR/zlib" \
+  -DZLIB_BUILD_EXAMPLES=OFF
 cmake_dep zstd "$(expand_package 'zstd-*.tar.gz' zstd)/build/cmake" "$LIBDIR/zstd" \
   -DZSTD_BUILD_PROGRAMS=OFF -DZSTD_BUILD_TESTS=OFF -DZSTD_BUILD_SHARED=OFF -DZSTD_BUILD_STATIC=ON
 cmake_dep brotli "$(expand_package 'brotli-*.tar.gz' brotli)" "$LIBDIR/brotli" \
@@ -117,7 +122,8 @@ cmake_dep fmt "$(expand_package 'fmt-*.tar.gz' fmt)" "$LIBDIR/fmt" \
 cmake_dep eigen "$(expand_package 'eigen-*.tar.gz' eigen)" "$LIBDIR/eigen" \
   -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC=OFF -DEIGEN_BUILD_PKGCONFIG=OFF
 cmake_dep png "$(expand_package 'libpng-*.tar.*' libpng)" "$LIBDIR/png" \
-  -DPNG_SHARED=OFF -DPNG_TESTS=OFF -DZLIB_ROOT="$LIBDIR/zlib"
+  -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_FRAMEWORK=OFF -DPNG_TESTS=OFF \
+  -DPNG_TOOLS=OFF -DZLIB_ROOT="$LIBDIR/zlib" -DZLIB_USE_STATIC_LIBS=ON
 cmake_dep jpeg "$(expand_package 'libjpeg-turbo-*.tar.gz' libjpeg-turbo)" "$LIBDIR/jpeg" \
   -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=ON
 cmake_dep tiff "$(expand_package 'tiff-*.tar.gz' tiff)" "$LIBDIR/tiff" \
