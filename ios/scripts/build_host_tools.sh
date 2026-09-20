@@ -18,6 +18,7 @@ MACSDK="$(xcrun --sdk macosx --show-sdk-path)"
 
 mkdir -p "$BUILD"
 cmake -S "$SRC" -B "$BUILD" -G Ninja \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_SYSTEM_NAME=Darwin \
   -DCMAKE_OSX_SYSROOT="$MACSDK" \

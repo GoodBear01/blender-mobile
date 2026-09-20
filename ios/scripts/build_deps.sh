@@ -94,6 +94,7 @@ cmake_dep() {
     -DCMAKE_PREFIX_PATH="$LIBDIR" \
     -DCMAKE_FIND_ROOT_PATH="$LIBDIR" \
     -DCMAKE_POLICY_DEFAULT_CMP0074=NEW \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DBUILD_SHARED_LIBS=OFF \
     "$@"
   echo "===== Building $name ====="
