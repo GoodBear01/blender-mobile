@@ -1,21 +1,36 @@
 #import "AppDelegate.h"
-#import "ViewController.h"
+#import "SceneDelegate.h"
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application
     didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-  self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-  self.window.rootViewController = [[ViewController alloc] init];
-  [self.window makeKeyAndVisible];
+  (void)application;
+  (void)launchOptions;
   return YES;
+}
+
+- (UISceneConfiguration *)application:(UIApplication *)application
+    configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession
+                                   options:(UISceneConnectionOptions *)options
+{
+  (void)application;
+  (void)options;
+  UISceneConfiguration *config =
+      [[UISceneConfiguration alloc] initWithName:@"Default Configuration"
+                                     sessionRole:connectingSceneSession.role];
+  config.delegateClass = [SceneDelegate class];
+  config.storyboard = nil;
+  return config;
 }
 
 - (UIInterfaceOrientationMask)application:(UIApplication *)application
     supportedInterfaceOrientationsForWindow:(UIWindow *)window
 {
-  return UIInterfaceOrientationMaskLandscape;
+  (void)application;
+  (void)window;
+  return UIInterfaceOrientationMaskAllButUpsideDown;
 }
 
 @end

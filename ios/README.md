@@ -23,7 +23,7 @@ In the stub project:
 
 A signing error about Team is one red issue, not a compile flood. Pick a Team and it goes away.
 
-After `git pull`, if Xcode still shows old errors: Product → Clean Build Folder, then Run again.
+After `git pull`, if Xcode still shows old errors or the icon immediately closes: Product → Clean Build Folder, delete the app from the iPhone, then Run again.
 
 ## Install the stub today
 
@@ -60,7 +60,7 @@ You cannot compile this project on Windows. Options:
 2. Signing & Capabilities → **Team**
 3. Product → Run onto the iPhone
 
-The stub shows the Blender name, an **Import .blend** button (Files / document picker), and writes into On My iPhone → Blender.
+The stub shows the Blender name, an **Import .blend** button (Files / document picker), and writes into On My iPhone → Blender. If the icon opens then immediately closes, pull this repo again — an earlier stub overwrote `HOME` and only allowed landscape, which makes iOS kill the process on launch.
 
 Free Apple ID builds expire in **7 days**. Re-run from Xcode to refresh. Paid Apple Developer lasts a year. App Store is out of scope.
 

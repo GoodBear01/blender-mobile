@@ -18,7 +18,7 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios1";
 
 + (void)setEnv:(const char *)name value:(NSString *)value
 {
-  if (value.length == 0) {
+  if (name == NULL || value.length == 0) {
     return;
   }
   setenv(name, value.UTF8String, 1);
@@ -28,13 +28,20 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios1";
 {
   NSFileManager *fm = NSFileManager.defaultManager;
   NSURL *docs = [self documentsURL];
+  if (docs == nil) {
+    return;
+  }
+
+  NSURL *blenderDir = [docs URLByAppendingPathComponent:@"Blender" isDirectory:YES];
+  [fm createDirectoryAtURL:blenderDir withIntermediateDirectories:YES attributes:nil error:nil];
+
   NSURL *runtime = [docs URLByAppendingPathComponent:@"blender" isDirectory:YES];
   NSURL *marker = [runtime URLByAppendingPathComponent:@"runtime_version.txt"];
   NSString *existing = [NSString stringWithContentsOfURL:marker
                                                 encoding:NSUTF8StringEncoding
                                                    error:nil];
   NSURL *bundleRuntime = [[NSBundle mainBundle] URLForResource:@"Runtime" withExtension:nil];
-  if (bundleRuntime && ![existing isEqualToString:kRuntimeVersion]) {
+  if (bundleRuntime != nil && ![existing isEqualToString:kRuntimeVersion]) {
     [fm removeItemAtURL:runtime error:nil];
     [fm createDirectoryAtURL:runtime withIntermediateDirectories:YES attributes:nil error:nil];
     NSURL *from = [bundleRuntime URLByAppendingPathComponent:@"blender"];
@@ -43,15 +50,10 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios1";
     }
     [kRuntimeVersion writeToURL:marker atomically:YES encoding:NSUTF8StringEncoding error:nil];
   }
-  [fm createDirectoryAtURL:[docs URLByAppendingPathComponent:@"Blender" isDirectory:YES]
-      withIntermediateDirectories:YES
-                       attributes:nil
-                            error:nil];
 
   NSString *home = docs.path;
   NSString *resources = [runtime URLByAppendingPathComponent:@"blender/5.2"].path;
-  [self setEnv:"HOME" value:home];
-  [self setEnv:"TMPDIR" value:NSTemporaryDirectory()];
+  /* Do not overwrite HOME or TMPDIR. UIKit aborts if those move before/during launch. */
   [self setEnv:"BLENDER_IOS" value:@"1"];
   [self setEnv:"BLENDER_MOBILE" value:@"1"];
   [self setEnv:"BLENDER_USER_RESOURCES" value:home];

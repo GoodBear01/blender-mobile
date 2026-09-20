@@ -1,5 +1,4 @@
 #import "ViewController.h"
-#import "BlenderHost.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 @implementation ViewController
@@ -31,8 +30,8 @@
   UIButton *importButton = [UIButton buttonWithType:UIButtonTypeSystem];
   [importButton setTitle:@"Import .blend" forState:UIControlStateNormal];
   importButton.titleLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightMedium];
-  importButton.backgroundColor = [UIColor colorWithRed:0.92 green:0.45 blue:0.07 alpha:1];
   [importButton setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
+  importButton.backgroundColor = [UIColor colorWithRed:0.92 green:0.45 blue:0.07 alpha:1];
   importButton.layer.cornerRadius = 10;
   importButton.translatesAutoresizingMaskIntoConstraints = NO;
   [importButton addTarget:self action:@selector(importBlend) forControlEvents:UIControlEventTouchUpInside];
@@ -41,22 +40,28 @@
   [self.view addSubview:body];
   [self.view addSubview:importButton];
 
+  UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
   [NSLayoutConstraint activateConstraints:@[
-    [title.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-    [title.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor constant:-80],
-    [body.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:40],
-    [body.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-40],
+    [title.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+    [title.centerYAnchor constraintEqualToAnchor:safe.centerYAnchor constant:-80],
+    [body.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:24],
+    [body.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-24],
     [body.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:16],
-    [importButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+    [importButton.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
     [importButton.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:24],
     [importButton.widthAnchor constraintEqualToConstant:220],
     [importButton.heightAnchor constraintEqualToConstant:48],
   ]];
 }
 
+- (BOOL)shouldAutorotate
+{
+  return YES;
+}
+
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
-  return UIInterfaceOrientationMaskLandscape;
+  return UIInterfaceOrientationMaskAllButUpsideDown;
 }
 
 - (BOOL)prefersStatusBarHidden
@@ -66,9 +71,10 @@
 
 - (void)importBlend
 {
-  UTType *blend = [UTType typeWithFilenameExtension:@"blend"] ?: UTTypeData;
+  UTType *blend = [UTType typeWithFilenameExtension:@"blend"];
+  NSArray<UTType *> *types = blend ? @[ blend, UTTypeData ] : @[ UTTypeData ];
   UIDocumentPickerViewController *picker =
-      [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[ blend ]];
+      [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types];
   picker.delegate = self;
   picker.allowsMultipleSelection = NO;
   [self presentViewController:picker animated:YES completion:nil];
@@ -77,6 +83,7 @@
 - (void)documentPicker:(UIDocumentPickerViewController *)controller
     didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
 {
+  (void)controller;
   NSURL *url = urls.firstObject;
   if (url == nil) {
     return;
@@ -86,7 +93,7 @@
   NSURL *blenderDir = [docs URLByAppendingPathComponent:@"Blender" isDirectory:YES];
   [fm createDirectoryAtURL:blenderDir withIntermediateDirectories:YES attributes:nil error:nil];
   BOOL access = [url startAccessingSecurityScopedResource];
-  NSURL *dest = [blenderDir URLByAppendingPathComponent:url.lastPathComponent];
+  NSURL *dest = [blenderDir URLByAppendingPathComponent:url.lastPathComponent ?: @"import.blend"];
   [fm removeItemAtURL:dest error:nil];
   NSError *error = nil;
   [fm copyItemAtURL:url toURL:dest error:&error];
