@@ -177,7 +177,11 @@ cmake_dep minizip "$(expand_package 'minizip-ng-*.tar.gz' minizip-ng)" "$LIBDIR/
 cmake_dep opencolorio "$(expand_package 'OpenColorIO-*.tar.gz' opencolorio)" "$LIBDIR/opencolorio" \
   -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF \
   -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_DOCS=OFF \
+  -DOCIO_INSTALL_EXT_PACKAGES=NONE \
+  -DOCIO_USE_SIMD=OFF -DOCIO_USE_SSE=OFF -DOCIO_USE_SSE2=OFF \
+  -DOCIO_USE_AVX=OFF -DOCIO_USE_AVX2=OFF -DOCIO_USE_AVX512=OFF -DOCIO_USE_F16C=OFF \
   -DImath_ROOT="$LIBDIR/imath" -Dexpat_ROOT="$LIBDIR/expat" \
+  -Dpystring_ROOT="$LIBDIR/pystring" \
   -Dyaml-cpp_DIR="$LIBDIR/yaml-cpp/lib/cmake/yaml-cpp" \
   -Dminizip-ng_ROOT="$LIBDIR/minizip-ng"
 cmake_dep tbb "$(expand_package 'oneTBB-*.tar.gz' tbb)" "$LIBDIR/tbb" \
