@@ -5,17 +5,12 @@
 #pragma once
 
 #include <atomic>
-
-#if __has_include(<OpenImageIO/oiioversion.h>)
-#  include <OpenImageIO/oiioversion.h>
-#endif
-#include <OpenImageIO/ustring.h>
-
-#if defined(OIIO_NAMESPACE)
-#  define BLI_OIIO_NS OIIO_NAMESPACE
-#else
-#  define BLI_OIIO_NS OpenImageIO
-#endif
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <unordered_map>
 
 #include "BLI_fixed_string.hh"
 #include "BLI_hash.hh"
@@ -23,34 +18,99 @@
 
 namespace blender {
 
+namespace ustring_detail {
+
+constexpr uint64_t strhash64(const size_t n, const char *s)
+{
+  uint64_t h = 14695981039346656037ull;
+  for (size_t i = 0; i < n; ++i) {
+    h ^= static_cast<unsigned char>(s[i]);
+    h *= 1099511628211ull;
+  }
+  return h;
+}
+
+/* Interned pointer, matching OpenImageIO::ustring layout/semantics enough
+ * for Blender. Kept independent of OIIO headers so host tools and iOS can
+ * compile when those headers are missing or use a versioned namespace. */
+class interned_ustring {
+ public:
+  interned_ustring() = default;
+  explicit interned_ustring(const std::string_view v) : p_(intern(v)) {}
+  explicit interned_ustring(const char *v) : p_(v ? intern(std::string_view(v)) : nullptr) {}
+
+  const char *c_str() const
+  {
+    return p_ ? p_->s.c_str() : nullptr;
+  }
+  const std::string &string() const
+  {
+    static const std::string empty;
+    return p_ ? p_->s : empty;
+  }
+  size_t length() const
+  {
+    return p_ ? p_->s.size() : 0;
+  }
+  size_t size() const
+  {
+    return length();
+  }
+  bool empty() const
+  {
+    return !p_ || p_->s.empty();
+  }
+  uint64_t hash() const
+  {
+    return p_ ? p_->hash : 0;
+  }
+  char operator[](const size_t i) const
+  {
+    return p_ ? p_->s[i] : '\0';
+  }
+  friend bool operator==(const interned_ustring &a, const interned_ustring &b)
+  {
+    return a.p_ == b.p_;
+  }
+
+ private:
+  struct interned {
+    std::string s;
+    uint64_t hash = 0;
+  };
+  const interned *p_ = nullptr;
+
+  static const interned *intern(const std::string_view v)
+  {
+    static std::mutex mu;
+    static std::unordered_map<std::string, std::unique_ptr<interned>> pool;
+    std::lock_guard<std::mutex> lock(mu);
+    std::string key(v);
+    std::unique_ptr<interned> &slot = pool[key];
+    if (!slot) {
+      slot = std::make_unique<interned>();
+      slot->s = std::move(key);
+      slot->hash = strhash64(slot->s.size(), slot->s.c_str());
+    }
+    return slot.get();
+  }
+};
+
+}  // namespace ustring_detail
+
 /**
- * This is a thin wrapper around OpenImageIO's ustring class. Additionally it also provides
- * conversions to our StringRef types.
- *
- * See the OpenImageIO documentation for more details:
- * https://openimageio.readthedocs.io/en/stable/imageioapi.html#efficient-unique-strings-ustring
+ * Interned unique string. API matches the OpenImageIO-backed desktop type.
  */
 class UString {
  private:
-  /**
-   * Using a member instead of inheritance because it simplifies avoiding various ambiguities with
-   * operator overloads (especially equality comparison between UString, StringRef, std::string,
-   * std::string_view, OpenImageIO::string_view, etc.).
-   */
-  BLI_OIIO_NS::ustring ustr_;
+  ustring_detail::interned_ustring ustr_;
 
  public:
   UString() = default;
   explicit UString(const StringRef str) : ustr_(std::string_view(str)) {}
 
-  /** A constructor that is meant to generate as little code as possible at the call site. */
   static UString from_ptr_noinline(const char *str);
 
-  /**
-   * Access the underlying string as a #StringRefNull.
-   *
-   * Note: This is not an implicit conversion to work around ambiguous function calls.
-   */
   StringRefNull ref() const
   {
     return StringRefNull(ustr_.c_str(), ustr_.length());
@@ -93,20 +153,11 @@ class UString {
 
   char operator[](const int64_t i) const
   {
-    /* Accessing null char at end is allowed too. */
     BLI_assert(i >= 0 && i <= this->size());
     return ustr_[i];
   }
 };
 
-/**
- * Define DefaultHash for UString keys so that it uses the cached hash on ustrings but also
- * supports hashing arbitrary (non-unique) strings in the same way.
- *
- * Note: The string hashes produced here are different from e.g. DefaultHash<StringRef>. That is
- * fine though. The only requirement is that all hashes defined in this template specialization are
- * compatible with each other.
- */
 template<> struct DefaultHash<UString> {
   uint64_t operator()(const UString &value) const
   {
@@ -115,37 +166,12 @@ template<> struct DefaultHash<UString> {
 
   constexpr uint64_t operator()(const StringRef value) const
   {
-    /* This is the hash function used by OpenImageIO::ustring::make_unique internally. */
-    return BLI_OIIO_NS::Strutil::strhash64(value.size(), value.data());
+    return ustring_detail::strhash64(size_t(value.size()), value.data());
   }
 };
 
-/**
- * Create a UString from a string literal. This is a template function so that each string is only
- * made unique once and not every time the literal is used.
- *
- * Note: OpenImageIO defines a similar `_us` string literal operator. However, it newly constructs
- * the ustring in each invocation instead of caching it in a static variable. Caching it like here
- * likely only works in C++20.
- */
 template<FixedString FStr> inline UString operator""_ustr()
 {
-  /* This is a more optimized variant of just doing this:
-   * \code{.cc}
-   *   static UString ustr(FStr.data);
-   *   return ustr
-   * \endcode
-   *
-   * The goal of the actual implementation is to improve upon performance and binary size compared
-   * to the above. This is possible here we have two pieces of information the compiler can't have:
-   *  - Once initialized, the pointer in the #UString is never null. Thus null can be used to
-   *    indicate that it has not been initialized yet. No separate guard variable is needed.
-   *  - It is valid to initialize the static variable more than once and the result will still be
-   *    the same because the string does not change. So a double checked lock is not needed.
-   */
-  /* Cache the interned pointer, not UString. OpenImageIO::ustring is not
-   * trivially copyable on Apple libc++ (user-declared destructor / export
-   * macros), so std::atomic<UString> is rejected. */
   static std::atomic<const char *> static_chars;
   const char *chars = static_chars.load(std::memory_order_relaxed);
   if (chars == nullptr) [[unlikely]] {
@@ -155,9 +181,6 @@ template<FixedString FStr> inline UString operator""_ustr()
   return UString::from_ptr_noinline(chars);
 }
 
-/**
- * Support using the `fmt` library with #UString.
- */
 inline std::string_view format_as(UString str)
 {
   return str.string();
@@ -165,10 +188,6 @@ inline std::string_view format_as(UString str)
 
 }  // namespace blender
 
-/**
- * Disable conflicting range formatter in fmtlib. Otherwise we will get compile errors
- * where fmtlib doesn't know if it should use the formatter from format.h or ranges.h.
- */
 namespace fmt {
 
 template<> struct is_range<blender::UString, char> : std::false_type {};

@@ -1158,12 +1158,14 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
 #endif
       break;
     }
+#if defined(SDL_EVENT_PINCH_BEGIN) && defined(SDL_EVENT_PINCH_UPDATE) && \
+    defined(SDL_EVENT_PINCH_END)
+    /* SDL 3.4+ only. SDL 3.2 (the iOS dep) has no pinch events; two-finger
+     * zoom is handled by finger-spread in processAndroidTouchAt. */
     case SDL_EVENT_PINCH_BEGIN: {
       touch_pinch_active_ = true;
       touch_mode_ = TOUCH_MODE_MULTI;
 #ifdef BLENDER_MOBILE
-      /* Finger-spread already emits wheel zoom. Do not also inject trackpad+wheel
-       * or leftover mouse buttons from the one-finger orbit. */
       GHOST_WindowSDL *window = findGhostWindowOrPrimary(
           SDL_GetWindowFromID_fallback(sdl_event->pinch.windowID));
       if (window != nullptr) {
@@ -1214,6 +1216,7 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
         touch_mode_ = TOUCH_MODE_PENDING_TAP;
       }
       break;
+#endif
   }
 
   if (g_event) {
