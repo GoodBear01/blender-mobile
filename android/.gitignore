@@ -1,0 +1,8 @@
+.tools/
+.deps/
+.gradle/
+local.properties
+app/build/
+app/src/main/jniLibs/
+app/src/main/assets/blender/5.2/
+build/

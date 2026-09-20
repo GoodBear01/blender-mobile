@@ -1,0 +1,31 @@
+# Accidental nested repo at the workspace root (not the iOS app).
+/BlenderMobile/
+
+# Rebuildable Android / iOS / CMake output. Do not push these to GitHub.
+build_android/
+build_host_tools/
+build_ios/
+packages/
+blender-5.2.0/lib/
+
+android/.tools/
+android/.deps/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/src/main/jniLibs/
+android/app/src/main/assets/blender/5.2/
+
+ios/build/
+ios/.deps/
+ios/BlenderMobile/Runtime/
+
+*.apk
+*.ipa
+*.aab
+.DS_Store
+Thumbs.db
+*.user
+*.suo
+.idea/
+.vs/

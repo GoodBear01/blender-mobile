@@ -1,0 +1,6 @@
+.deps/
+BlenderMobile/Runtime/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+build/

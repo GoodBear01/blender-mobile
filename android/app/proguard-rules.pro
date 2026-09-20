@@ -1,0 +1,3 @@
+-keep class org.libsdl.app.** { *; }
+-keep class org.blender.experimental.** { *; }
+-keep class org.libsdl.app.SDLActivity { *; }
