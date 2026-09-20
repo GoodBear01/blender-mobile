@@ -53,27 +53,27 @@ echo "note: ninja=$(command -v ninja)"
 
 if [ ! -f "$ROOT/blender-5.2.0/lib/ios_arm64/python/.built" ] || [ ! -f "$ROOT/blender-5.2.0/lib/ios_arm64/sdl/.built" ]; then
   echo "note: Building iOS libraries (SDL, Python, MoltenVK)"
-  "$WORK/build_deps.sh"
+  /bin/bash "$WORK/build_deps.sh"
 fi
 
 if [ ! -x "${HOST_TOOLS_DIR:-$ROOT/build_host_tools_macos}/makesrna" ]; then
   echo "note: Building macOS host codegen tools"
-  "$WORK/build_host_tools.sh"
+  /bin/bash "$WORK/build_host_tools.sh"
 fi
 
 if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
   echo "note: Packing Blender scripts and datafiles"
-  "$WORK/package_runtime.sh"
+  /bin/bash "$WORK/package_runtime.sh"
 fi
 
 if [ ! -f "${BUILD_IOS:-$ROOT/build_ios}/CMakeCache.txt" ]; then
   echo "note: Configuring libblender"
-  "$WORK/configure_blender.sh"
+  /bin/bash "$WORK/configure_blender.sh"
 fi
 
 echo "note: Compiling libblender.dylib"
-"$WORK/build_native.sh"
-"$WORK/stage_native.sh"
+/bin/bash "$WORK/build_native.sh"
+/bin/bash "$WORK/stage_native.sh"
 
 if [ ! -f "$ROOT/ios/Vendor/libblender.dylib" ]; then
   echo "error: libblender.dylib was not produced" >&2

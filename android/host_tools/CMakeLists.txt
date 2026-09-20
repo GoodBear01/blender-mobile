@@ -5,6 +5,11 @@ project(blender_android_host_tools C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_BUILD_TYPE Release)
+# Keep host binaries in the build root so iOS cmake can find
+# $HOST_TOOLS_DIR/{makesdna,makesrna,datatoc,shader_tool}.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}")
 
 set(ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 set(BLENDER "${ROOT}/blender-5.2.0")
@@ -114,7 +119,7 @@ add_custom_command(
     "${DNA_GEN}/dna_struct_ids.cc"
     "${DNA_GEN}/dna_type_offsets.h"
     "${DNA_GEN}/dna_verify.cc"
-  COMMAND makesdna
+  COMMAND "$<TARGET_FILE:makesdna>"
     "${DNA_GEN}/dna.cc"
     "${DNA_GEN}/dna_type_offsets.h"
     "${DNA_GEN}/dna_verify.cc"
@@ -122,6 +127,7 @@ add_custom_command(
     "${DNA_GEN}/dna_defaults.cc"
     "${BLENDER}/source/blender/makesdna/"
   DEPENDS makesdna
+  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 )
 add_library(host_dna STATIC
   "${BLENDER}/source/blender/makesdna/intern/dna_genfile.cc"

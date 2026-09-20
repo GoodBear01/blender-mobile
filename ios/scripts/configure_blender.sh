@@ -28,15 +28,21 @@ if [[ ! -x "$HOST_TOOLS_DIR/makesrna" ]]; then
 fi
 
 mkdir -p "$BUILD"
+NINJA_BIN="$(command -v ninja || true)"
+PY3="$(command -v python3 || true)"
+if [ -z "$PY3" ] && [ -x /usr/bin/python3 ]; then
+  PY3=/usr/bin/python3
+fi
 cmake -S "$BLENDER" -B "$BUILD" \
   -G Ninja \
   -C "$PRESET" \
   -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_MAKE_PROGRAM="$NINJA_BIN" \
   -DLIBDIR="$LIBDIR" \
   -DHOST_TOOLS_DIR="$HOST_TOOLS_DIR" \
-  -DPYTHON_EXECUTABLE="$(command -v python3)" \
+  -DPYTHON_EXECUTABLE="$PY3" \
   "$@"
 
 echo "Configured $BUILD. Next: ios/scripts/build_native.sh"
