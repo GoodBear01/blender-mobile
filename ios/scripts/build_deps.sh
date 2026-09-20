@@ -210,6 +210,69 @@ cmake_dep pystring "$PYSTRING_SRC" "$LIBDIR/pystring"
 cmake_dep minizip "$(expand_package 'minizip-ng-*.tar.gz' minizip-ng)" "$LIBDIR/minizip-ng" \
   -DMZ_COMPAT=OFF -DMZ_BZIP2=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=ON \
   -DMZ_OPENSSL=OFF -DMZ_LIBCOMP=OFF -DZLIB_ROOT="$LIBDIR/zlib" -Dzstd_ROOT="$LIBDIR/zstd"
+
+ensure_imath_cmake() {
+  local prefix="$LIBDIR/imath"
+  local cfgdir="$prefix/ocio-cmake"
+  local cfg="$cfgdir/ImathConfig.cmake"
+  set +o pipefail
+  local inc="" lib="" hdr
+  if [[ -f "$prefix/include/Imath/ImathVec.h" ]]; then
+    inc="$prefix/include"
+  else
+    hdr="$(find "$prefix" -name 'ImathVec.h' 2>/dev/null | head -n 1)"
+    if [[ -n "$hdr" ]]; then
+      inc="$(cd "$(dirname "$hdr")/.." && pwd)"
+    fi
+  fi
+  lib="$(find "$prefix" \( -name 'libImath*.a' -o -name 'libImath*.dylib' \) 2>/dev/null | head -n 1)"
+  if [[ -z "$lib" ]]; then
+    lib="$(find "$prefix" -path '*Imath.framework/Imath' 2>/dev/null | head -n 1)"
+  fi
+  set -o pipefail
+  if [[ -z "$inc" || -z "$lib" ]]; then
+    echo "error: Imath install is incomplete under $prefix (include=$inc lib=$lib)" >&2
+    return 1
+  fi
+  mkdir -p "$cfgdir"
+  cat >"$cfg" <<EOF
+set(Imath_FOUND TRUE)
+set(Imath_VERSION "3.2.2")
+set(Imath_INCLUDE_DIR "$inc")
+set(Imath_INCLUDE_DIRS "$inc;$inc/Imath")
+set(Imath_LIBRARY "$lib")
+set(Imath_LIBRARIES "$lib")
+if(NOT TARGET Imath::Config)
+  add_library(Imath::Config INTERFACE IMPORTED)
+  set_target_properties(Imath::Config PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$inc;$inc/Imath")
+endif()
+if(NOT TARGET Imath::Imath)
+  add_library(Imath::Imath STATIC IMPORTED)
+  set_target_properties(Imath::Imath PROPERTIES
+    IMPORTED_LOCATION "$lib"
+    INTERFACE_INCLUDE_DIRECTORIES "$inc;$inc/Imath"
+    INTERFACE_LINK_LIBRARIES Imath::Config)
+endif()
+EOF
+  cat >"$cfgdir/ImathConfigVersion.cmake" <<EOF
+set(PACKAGE_VERSION "3.2.2")
+set(PACKAGE_VERSION_COMPATIBLE TRUE)
+set(PACKAGE_VERSION_EXACT FALSE)
+EOF
+  echo "note: Imath package include=$inc lib=$lib"
+  IMATH_DIR="$cfgdir"
+  IMATH_INCLUDE="$inc"
+  IMATH_LIB="$lib"
+}
+
+if ! ensure_imath_cmake; then
+  echo "note: rebuilding Imath so OCIO can find it"
+  rm -f "$LIBDIR/imath/.built"
+  cmake_dep imath "$(expand_package 'imath-*.tar.gz' imath)" "$LIBDIR/imath" \
+    -DBUILD_TESTING=OFF -DCMAKE_INSTALL_LIBDIR=lib
+  ensure_imath_cmake || exit 1
+fi
+
 OCIO_SRC="$(expand_package 'OpenColorIO-*.tar.gz' opencolorio)"
 patch_ocio_for_ios "$OCIO_SRC"
 cmake_dep opencolorio "$OCIO_SRC" "$LIBDIR/opencolorio" \
@@ -218,7 +281,12 @@ cmake_dep opencolorio "$OCIO_SRC" "$LIBDIR/opencolorio" \
   -DOCIO_INSTALL_EXT_PACKAGES=NONE \
   -DOCIO_USE_SIMD=OFF -DOCIO_USE_SSE=OFF -DOCIO_USE_SSE2=OFF \
   -DOCIO_USE_AVX=OFF -DOCIO_USE_AVX2=OFF -DOCIO_USE_AVX512=OFF -DOCIO_USE_F16C=OFF \
-  -DImath_ROOT="$LIBDIR/imath" -Dexpat_ROOT="$LIBDIR/expat" \
+  -DImath_ROOT="$LIBDIR/imath" -DImath_DIR="$IMATH_DIR" \
+  -DImath_INCLUDE_DIR="$IMATH_INCLUDE" -DImath_LIBRARY="$IMATH_LIB" \
+  -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+  -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+  -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+  -Dexpat_ROOT="$LIBDIR/expat" \
   -Dpystring_ROOT="$LIBDIR/pystring" \
   -Dyaml-cpp_DIR="$LIBDIR/yaml-cpp/lib/cmake/yaml-cpp" \
   -Dminizip-ng_ROOT="$LIBDIR/minizip-ng"
