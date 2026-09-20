@@ -68,8 +68,11 @@ if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
   /bin/bash "$WORK/package_runtime.sh"
 fi
 
-if [ ! -f "${BUILD_IOS:-$ROOT/build_ios}/build.ninja" ]; then
+BUILD_IOS_DIR="${BUILD_IOS:-$ROOT/build_ios}"
+if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] \
+    || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null; then
   echo "note: Configuring libblender"
+  rm -f "$BUILD_IOS_DIR/CMakeCache.txt"
   /bin/bash "$WORK/configure_blender.sh"
 fi
 

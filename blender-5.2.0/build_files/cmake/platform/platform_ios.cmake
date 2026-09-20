@@ -315,7 +315,10 @@ set(PLATFORM_LINKLIBS
   c++
 )
 
-set(PLATFORM_CFLAGS "-fPIC -fexceptions -frtti -DBLENDER_IOS -DBLENDER_MOBILE")
+# DNA stores bitflags in char. Apple Clang defaults to signed char, so
+# enumerators like (1 << 7) fail with -Wc++11-narrowing.
+set(PLATFORM_CFLAGS "-fPIC -fexceptions -frtti -funsigned-char -fno-strict-aliasing")
+set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -DBLENDER_IOS -DBLENDER_MOBILE")
 set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
 set(PLATFORM_LINKFLAGS "-Wl,-dead_strip")
 set(PLATFORM_LINKFLAGS_DEBUG "")

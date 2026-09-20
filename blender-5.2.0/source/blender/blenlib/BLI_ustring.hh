@@ -6,7 +6,16 @@
 
 #include <atomic>
 
+#if __has_include(<OpenImageIO/oiioversion.h>)
+#  include <OpenImageIO/oiioversion.h>
+#endif
 #include <OpenImageIO/ustring.h>
+
+#if defined(OIIO_NAMESPACE)
+#  define BLI_OIIO_NS OIIO_NAMESPACE
+#else
+#  define BLI_OIIO_NS OpenImageIO
+#endif
 
 #include "BLI_fixed_string.hh"
 #include "BLI_hash.hh"
@@ -28,7 +37,7 @@ class UString {
    * operator overloads (especially equality comparison between UString, StringRef, std::string,
    * std::string_view, OpenImageIO::string_view, etc.).
    */
-  OpenImageIO::ustring ustr_;
+  BLI_OIIO_NS::ustring ustr_;
 
  public:
   UString() = default;
@@ -107,7 +116,7 @@ template<> struct DefaultHash<UString> {
   constexpr uint64_t operator()(const StringRef value) const
   {
     /* This is the hash function used by OpenImageIO::ustring::make_unique internally. */
-    return OpenImageIO::Strutil::strhash64(value.size(), value.data());
+    return BLI_OIIO_NS::Strutil::strhash64(value.size(), value.data());
   }
 };
 
