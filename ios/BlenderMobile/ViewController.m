@@ -16,11 +16,11 @@
   title.translatesAutoresizingMaskIntoConstraints = NO;
 
   UILabel *body = [[UILabel alloc] init];
-  body.text = @"Developer Mode install is working.\n\n"
-              @"This stub is the separate iOS app. On the Mac, build "
-              @"ios_arm64 libraries and libblender, then Product → Run again "
-              @"to load the full editor.\n\n"
-              @"Import a .blend into Files → On My iPhone → Blender.";
+  body.text = @"The full Blender editor is not in this install.\n\n"
+              @"On the Mac, from the repo root, run this and wait for it "
+              @"to finish (first time takes hours):\n\n"
+              @"  TEAM=YOUR_TEAM_ID ./ios/scripts/build_full_app.sh\n\n"
+              @"Opening the Xcode project alone only signs a placeholder.";
   body.textColor = [UIColor colorWithWhite:0.82 alpha:1];
   body.font = [UIFont systemFontOfSize:16];
   body.numberOfLines = 0;

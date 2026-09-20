@@ -1,4 +1,5 @@
 #import "BlenderHost.h"
+#import <dlfcn.h>
 #import <stdlib.h>
 #import <unistd.h>
 
@@ -7,6 +8,9 @@ extern int blender_ios_main(int argc, char **argv);
 #endif
 
 static NSString *const kRuntimeVersion = @"5.2.0-ios-full1";
+
+static void *g_blender_handle;
+static int (*g_blender_main)(int, char **);
 
 @implementation BlenderHost
 
@@ -22,6 +26,54 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios-full1";
     return;
   }
   setenv(name, value.UTF8String, 1);
+}
+
++ (NSString *)frameworksDir
+{
+  return [[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks"] copy];
+}
+
++ (void *)loadBundleLib:(NSString *)name
+{
+  NSString *path = [[self frameworksDir] stringByAppendingPathComponent:name];
+  if (![NSFileManager.defaultManager fileExistsAtPath:path]) {
+    return NULL;
+  }
+  void *handle = dlopen(path.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL);
+  if (handle == NULL) {
+    NSLog(@"BlenderHost: dlopen %@ failed: %s", name, dlerror());
+  }
+  return handle;
+}
+
++ (void)loadNativeLibraries
+{
+  if (g_blender_main != NULL) {
+    return;
+  }
+#ifdef BLENDER_IOS_HAS_NATIVE
+  g_blender_main = blender_ios_main;
+  return;
+#endif
+  [self loadBundleLib:@"MoltenVK.framework/MoltenVK"];
+  [self loadBundleLib:@"libMoltenVK.dylib"];
+  [self loadBundleLib:@"libSDL3.dylib"];
+  [self loadBundleLib:@"SDL3.framework/SDL3"];
+  [self loadBundleLib:@"libpython3.13.dylib"];
+  [self loadBundleLib:@"Python.framework/Python"];
+  [self loadBundleLib:@"libtbb.dylib"];
+  g_blender_handle = [self loadBundleLib:@"libblender.dylib"];
+  if (g_blender_handle == NULL) {
+    g_blender_handle = dlopen("@rpath/libblender.dylib", RTLD_NOW | RTLD_GLOBAL);
+  }
+  if (g_blender_handle == NULL) {
+    NSLog(@"BlenderHost: libblender.dylib is not in this app. Run ./ios/scripts/build_full_app.sh on the Mac.");
+    return;
+  }
+  g_blender_main = (int (*)(int, char **))dlsym(g_blender_handle, "blender_ios_main");
+  if (g_blender_main == NULL) {
+    NSLog(@"BlenderHost: blender_ios_main missing: %s", dlerror());
+  }
 }
 
 + (void)prepareRuntime
@@ -54,7 +106,6 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios-full1";
   NSString *home = docs.path;
   NSString *resources = [runtime URLByAppendingPathComponent:@"blender/5.2"].path;
   NSString *pythonHome = [resources stringByAppendingPathComponent:@"python"];
-  /* Never overwrite HOME/TMPDIR: UIKit uses the sandbox container. */
   [self setEnv:"BLENDER_IOS" value:@"1"];
   [self setEnv:"BLENDER_MOBILE" value:@"1"];
   [self setEnv:"BLENDER_USER_RESOURCES" value:home];
@@ -69,31 +120,27 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios-full1";
     [self setEnv:"PYTHONHOME" value:pythonHome];
     [self setEnv:"PYTHONPATH" value:[pythonHome stringByAppendingPathComponent:@"lib/python3.13"]];
   }
+  [self loadNativeLibraries];
 }
 
 + (BOOL)canLaunchBlender
 {
-#ifdef BLENDER_IOS_HAS_NATIVE
-  return YES;
-#else
-  return NO;
-#endif
+  [self loadNativeLibraries];
+  return g_blender_main != NULL;
 }
 
 + (int)runBlenderWithArgc:(int)argc argv:(char **)argv
 {
-#ifdef BLENDER_IOS_HAS_NATIVE
+  [self loadNativeLibraries];
+  if (g_blender_main == NULL) {
+    return 1;
+  }
   static const char *fallback[] = {"blender", "--gpu-backend", "vulkan", NULL};
   if (argc < 1 || argv == NULL) {
     argc = 3;
     argv = (char **)fallback;
   }
-  return blender_ios_main(argc, argv);
-#else
-  (void)argc;
-  (void)argv;
-  return 1;
-#endif
+  return g_blender_main(argc, argv);
 }
 
 @end

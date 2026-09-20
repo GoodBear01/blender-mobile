@@ -28,9 +28,11 @@ On the iPhone: Settings → Privacy & Security → Developer Mode → On, then t
 
 After install you should see the **real Blender UI**, not the “Developer Mode install is working” stub.
 
-## If you only want the stub
+## Do not use Product → Run for the editor
 
-Open `ios/BlenderMobile.xcodeproj` **without** running `build_full_app.sh`. The stub is only a signing/install check. Do not open `blender-5.2.0/` in Xcode.
+Xcode → Product → Run, without `build_full_app.sh` first, is why the phone says it is a stub. The host app cannot invent the Blender UI.
+
+Wait until `build_full_app.sh` finishes, then install. To force the old placeholder: `STUB=1 TEAM=... ./ios/scripts/install_device.sh`.
 
 ## Phone use
 
