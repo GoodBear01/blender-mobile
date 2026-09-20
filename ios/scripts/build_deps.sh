@@ -107,6 +107,42 @@ cmake_dep() {
   date -Iseconds >"$prefix/.built"
 }
 
+patch_ocio_for_ios() {
+  local src="$1"
+  python3 - "$src" <<'PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+mon = root / "src/OpenColorIO/SystemMonitor.cpp"
+if mon.exists():
+    t = mon.read_text()
+    if "TARGET_OS_IPHONE" not in t:
+        t = t.replace(
+            '#include "SystemMonitor_macos.cpp"',
+            '#include <TargetConditionals.h>\n'
+            '#if TARGET_OS_IPHONE\n'
+            'namespace OCIO_NAMESPACE { void SystemMonitorsImpl::getAllMonitors() {} }\n'
+            '#else\n'
+            '#include "SystemMonitor_macos.cpp"\n'
+            '#endif',
+            1,
+        )
+        mon.write_text(t)
+        print("note: patched OCIO SystemMonitor for iOS")
+cm = root / "src/OpenColorIO/CMakeLists.txt"
+if cm.exists():
+    t = cm.read_text()
+    t2, n = re.subn(
+        r"if\(APPLE\)\s*\n(\s*)target_link_libraries\(OpenColorIO",
+        r'if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n\1target_link_libraries(OpenColorIO',
+        t,
+        count=1,
+    )
+    if n:
+        cm.write_text(t2)
+        print("note: patched OCIO Apple frameworks for iOS")
+PY
+}
+
 if [[ -d "$ROOT/android/.deps/src" && ! -d "$SRC/sdl3" ]]; then
   echo "Reusing extracted sources under android/.deps/src where present."
 fi
@@ -174,7 +210,9 @@ cmake_dep pystring "$PYSTRING_SRC" "$LIBDIR/pystring"
 cmake_dep minizip "$(expand_package 'minizip-ng-*.tar.gz' minizip-ng)" "$LIBDIR/minizip-ng" \
   -DMZ_COMPAT=OFF -DMZ_BZIP2=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=ON \
   -DMZ_OPENSSL=OFF -DMZ_LIBCOMP=OFF -DZLIB_ROOT="$LIBDIR/zlib" -Dzstd_ROOT="$LIBDIR/zstd"
-cmake_dep opencolorio "$(expand_package 'OpenColorIO-*.tar.gz' opencolorio)" "$LIBDIR/opencolorio" \
+OCIO_SRC="$(expand_package 'OpenColorIO-*.tar.gz' opencolorio)"
+patch_ocio_for_ios "$OCIO_SRC"
+cmake_dep opencolorio "$OCIO_SRC" "$LIBDIR/opencolorio" \
   -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF \
   -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_DOCS=OFF \
   -DOCIO_INSTALL_EXT_PACKAGES=NONE \
