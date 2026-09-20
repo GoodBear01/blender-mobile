@@ -112,23 +112,51 @@ if(WITH_VULKAN_BACKEND)
   if(NOT DEFINED SHADERC_ROOT_DIR)
     set(SHADERC_ROOT_DIR ${LIBDIR}/shaderc)
   endif()
-  if(NOT Vulkan_INCLUDE_DIR AND EXISTS "${LIBDIR}/vulkan/include/vulkan/vulkan.h")
+  # FindVulkan.cmake uses VULKAN_INCLUDE_DIR / VULKAN_LIBRARY (not Vulkan_*).
+  if(EXISTS "${LIBDIR}/vulkan/include/vulkan/vulkan.h")
+    set(VULKAN_INCLUDE_DIR "${LIBDIR}/vulkan/include" CACHE PATH "" FORCE)
     set(Vulkan_INCLUDE_DIR "${LIBDIR}/vulkan/include" CACHE PATH "" FORCE)
   endif()
-  if(NOT Vulkan_LIBRARY)
-    file(GLOB _mvk_cands
-      "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
-      "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
-      "${LIBDIR}/moltenvk/lib/libMoltenVK.a"
-      "${LIBDIR}/moltenvk/lib/libMoltenVK.dylib"
-    )
-    if(_mvk_cands)
-      list(GET _mvk_cands 0 Vulkan_LIBRARY)
-      set(Vulkan_LIBRARY "${Vulkan_LIBRARY}" CACHE FILEPATH "" FORCE)
-      set(MOLTENVK_LIBRARY "${Vulkan_LIBRARY}" CACHE FILEPATH "" FORCE)
+  set(_mvk_paths
+    "${LIBDIR}/vulkan/lib/libvulkan.a"
+    "${LIBDIR}/moltenvk/lib/libMoltenVK.a"
+    "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+    "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+    "${LIBDIR}/moltenvk/static/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+    "${LIBDIR}/moltenvk/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+    "${LIBDIR}/moltenvk/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+    "${LIBDIR}/moltenvk/lib/libMoltenVK.dylib"
+  )
+  set(_mvk_lib "")
+  foreach(_p ${_mvk_paths})
+    if(EXISTS "${_p}" AND NOT _mvk_lib)
+      set(_mvk_lib "${_p}")
     endif()
-    unset(_mvk_cands)
+  endforeach()
+  if(NOT _mvk_lib)
+    file(GLOB_RECURSE _mvk_found
+      "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/*"
+    )
+    foreach(_p ${_mvk_found})
+      get_filename_component(_n "${_p}" NAME)
+      if(NOT _mvk_lib AND EXISTS "${_p}" AND NOT IS_DIRECTORY "${_p}")
+        if(_n STREQUAL "MoltenVK" OR _n STREQUAL "libMoltenVK.a")
+          set(_mvk_lib "${_p}")
+        endif()
+      endif()
+    endforeach()
+    unset(_mvk_found)
   endif()
+  if(_mvk_lib)
+    set(VULKAN_LIBRARY "${_mvk_lib}" CACHE FILEPATH "" FORCE)
+    set(Vulkan_LIBRARY "${_mvk_lib}" CACHE FILEPATH "" FORCE)
+    set(MOLTENVK_LIBRARY "${_mvk_lib}" CACHE FILEPATH "" FORCE)
+    message(STATUS "iOS Vulkan (MoltenVK): ${_mvk_lib}")
+  else()
+    message(WARNING "MoltenVK ios-arm64 library not found under ${LIBDIR}/moltenvk")
+  endif()
+  unset(_mvk_paths)
+  unset(_mvk_lib)
   find_package_wrapper(Vulkan REQUIRED)
   find_package_wrapper(ShaderC REQUIRED)
 endif()

@@ -1285,7 +1285,9 @@ endif()
 
 
 # Apple
-if(APPLE)
+# iOS uses ios.toolchain.cmake + platform_ios.cmake. platform_apple_xcode
+# force-sets the macOS SDK and would compile libblender for Mac.
+if(APPLE AND NOT IOS)
   include(platform_apple_xcode)
 
   option(WITH_LEGACY_MACOS_X64_LINKER "\

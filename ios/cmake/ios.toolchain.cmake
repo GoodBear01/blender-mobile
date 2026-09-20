@@ -10,17 +10,16 @@ set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "" FORCE)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0" CACHE STRING "" FORCE)
 set(IOS TRUE)
 
-if(NOT CMAKE_OSX_SYSROOT)
-  execute_process(
-    COMMAND xcrun --sdk iphoneos --show-sdk-path
-    OUTPUT_VARIABLE _ios_sdk
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-  if(_ios_sdk)
-    set(CMAKE_OSX_SYSROOT "${_ios_sdk}" CACHE PATH "" FORCE)
-  endif()
-  unset(_ios_sdk)
+execute_process(
+  COMMAND xcrun --sdk iphoneos --show-sdk-path
+  OUTPUT_VARIABLE _ios_sdk
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT _ios_sdk)
+  message(FATAL_ERROR "xcrun could not find the iphoneos SDK")
 endif()
+set(CMAKE_OSX_SYSROOT "${_ios_sdk}" CACHE PATH "" FORCE)
+unset(_ios_sdk)
 
 set(CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH NO)
 set(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE NO)

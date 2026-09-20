@@ -39,6 +39,7 @@ fetch "https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/v2.4.2.t
 fetch "https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.1.0.tar.gz" "$PACKAGES/oneTBB-v2022.1.0.tar.gz"
 fetch "https://github.com/libsdl-org/SDL/releases/download/release-3.2.22/SDL3-3.2.22.tar.gz" "$PACKAGES/SDL3-3.2.22.tar.gz"
 fetch "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.4.309.tar.gz" "$PACKAGES/Vulkan-Headers-1.4.309.tar.gz"
+fetch "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-ios.tar" "$PACKAGES/MoltenVK-ios.tar"
 fetch "https://github.com/google/shaderc/archive/v2025.3.tar.gz" "$PACKAGES/shaderc-v2025.3.tar.gz"
 fetch "https://github.com/AcademySoftwareFoundation/OpenImageIO/archive/refs/tags/v3.0.9.1.tar.gz" "$PACKAGES/OpenImageIO-v3.0.9.1.tar.gz"
 fetch "https://www.python.org/ftp/python/3.13.7/Python-3.13.7.tar.xz" "$PACKAGES/Python-3.13.7.tar.xz"

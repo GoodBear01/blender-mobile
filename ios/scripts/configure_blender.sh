@@ -28,15 +28,22 @@ if [[ ! -x "$HOST_TOOLS_DIR/makesrna" ]]; then
 fi
 
 mkdir -p "$BUILD"
+if [[ -f "$BUILD/CMakeCache.txt" && ! -f "$BUILD/build.ninja" ]]; then
+  echo "note: Removing incomplete iOS CMake cache"
+  rm -f "$BUILD/CMakeCache.txt"
+fi
 NINJA_BIN="$(command -v ninja || true)"
 PY3="$(command -v python3 || true)"
 if [ -z "$PY3" ] && [ -x /usr/bin/python3 ]; then
   PY3=/usr/bin/python3
 fi
+IOS_SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 cmake -S "$BLENDER" -B "$BUILD" \
   -G Ninja \
   -C "$PRESET" \
   -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+  -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_OSX_SYSROOT="$IOS_SDK" \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_MAKE_PROGRAM="$NINJA_BIN" \

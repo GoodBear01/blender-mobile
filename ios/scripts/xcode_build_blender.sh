@@ -51,7 +51,9 @@ fi
 echo "note: cmake=$(command -v cmake)"
 echo "note: ninja=$(command -v ninja)"
 
-if [ ! -f "$ROOT/blender-5.2.0/lib/ios_arm64/python/.built" ] || [ ! -f "$ROOT/blender-5.2.0/lib/ios_arm64/sdl/.built" ]; then
+LIBDIR_IOS="$ROOT/blender-5.2.0/lib/ios_arm64"
+if [ ! -f "$LIBDIR_IOS/python/.built" ] || [ ! -f "$LIBDIR_IOS/sdl/.built" ] \
+    || { [ ! -e "$LIBDIR_IOS/vulkan/lib/libvulkan.a" ] && [ ! -e "$LIBDIR_IOS/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]; }; then
   echo "note: Building iOS libraries (SDL, Python, MoltenVK)"
   /bin/bash "$WORK/build_deps.sh"
 fi
@@ -66,7 +68,7 @@ if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
   /bin/bash "$WORK/package_runtime.sh"
 fi
 
-if [ ! -f "${BUILD_IOS:-$ROOT/build_ios}/CMakeCache.txt" ]; then
+if [ ! -f "${BUILD_IOS:-$ROOT/build_ios}/build.ninja" ]; then
   echo "note: Configuring libblender"
   /bin/bash "$WORK/configure_blender.sh"
 fi

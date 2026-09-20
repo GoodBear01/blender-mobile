@@ -305,35 +305,96 @@ if [[ ! -f "$LIBDIR/vulkan/.built" ]]; then
 fi
 
 echo "===== MoltenVK ====="
-if [[ ! -f "$LIBDIR/moltenvk/.built" ]]; then
-  mkdir -p "$LIBDIR/moltenvk"
-  if command -v brew >/dev/null && brew list molten-vk >/dev/null 2>&1; then
-    MVK_XC="$(brew --prefix molten-vk)/share/vulkan/MoltenVK.xcframework"
-    if [[ ! -d "$MVK_XC" ]]; then
-      MVK_XC="$(find "$(brew --prefix molten-vk)" -name 'MoltenVK.xcframework' | head -n 1 || true)"
+# Homebrew and MoltenVK-macos.tar are macOS-only. CMake needs the ios-arm64 slice.
+find_moltenvk_ios_lib() {
+  local root="${1:-$LIBDIR/moltenvk}"
+  local cand
+  [[ -d "$root" ]] || return 1
+  for cand in \
+    "$root/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" \
+    "$root/MoltenVK.xcframework/ios-arm64/libMoltenVK.a" \
+    "$root/static/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" \
+    "$root/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a" \
+    "$root/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+  do
+    if [[ -f "$cand" ]]; then
+      printf '%s\n' "$cand"
+      return 0
     fi
-    if [[ -d "$MVK_XC" ]]; then
-      rsync -a "$MVK_XC" "$LIBDIR/moltenvk/"
+  done
+  while IFS= read -r cand; do
+    case "$cand" in
+      *simulator*|*x86_64*) continue ;;
+    esac
+    if [[ -f "$cand" ]]; then
+      printf '%s\n' "$cand"
+      return 0
     fi
-  fi
-  if [[ ! -d "$LIBDIR/moltenvk/MoltenVK.xcframework" ]]; then
-    echo "Downloading MoltenVK xcframework..."
-    MVK_TAR="$WORK/MoltenVK.tar"
-    curl -L --fail -o "$MVK_TAR" \
-      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.11/MoltenVK-macos.tar" \
-      || curl -L --fail -o "$MVK_TAR" \
-      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.3.0/MoltenVK-macos.tar"
-    mkdir -p "$WORK/moltenvk-extract"
-    tar -xf "$MVK_TAR" -C "$WORK/moltenvk-extract"
-    XC="$(find "$WORK/moltenvk-extract" -name 'MoltenVK.xcframework' | head -n 1 || true)"
-    if [[ -z "$XC" ]]; then
-      echo "Install MoltenVK: brew install molten-vk" >&2
-      exit 1
-    fi
-    rsync -a "$XC" "$LIBDIR/moltenvk/"
-  fi
+  done < <(find "$root" -path '*ios-arm64*' \( -name MoltenVK -o -name 'libMoltenVK.a' \) -type f 2>/dev/null || true)
+  return 1
+}
+
+stage_moltenvk_symlinks() {
+  local lib="$1"
+  mkdir -p "$LIBDIR/moltenvk/lib" "$LIBDIR/vulkan/lib"
+  ln -sfn "$lib" "$LIBDIR/moltenvk/lib/libMoltenVK.a"
+  ln -sfn "$lib" "$LIBDIR/vulkan/lib/libvulkan.a"
   date -Iseconds >"$LIBDIR/moltenvk/.built"
+  echo "note: MoltenVK iOS library: $lib"
+}
+
+if ! find_moltenvk_ios_lib >/dev/null; then
+  mkdir -p "$LIBDIR/moltenvk" "$PACKAGES"
+  MVK_TAR=""
+  for cand in \
+    "$PACKAGES/MoltenVK-ios.tar" \
+    "$PACKAGES/MoltenVK-ios-1.4.2.tar" \
+    "$WORK/MoltenVK-ios.tar"
+  do
+    if [[ -f "$cand" ]]; then
+      MVK_TAR="$cand"
+      break
+    fi
+  done
+  if [[ -z "$MVK_TAR" ]]; then
+    echo "note: Downloading MoltenVK iOS xcframework"
+    MVK_TAR="$PACKAGES/MoltenVK-ios.tar"
+    curl -L --fail --retry 3 -o "$MVK_TAR.partial" \
+      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-ios.tar" \
+      || curl -L --fail --retry 3 -o "$MVK_TAR.partial" \
+      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.1/MoltenVK-ios.tar" \
+      || curl -L --fail --retry 3 -o "$MVK_TAR.partial" \
+      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.3.0/MoltenVK-ios.tar"
+    mv "$MVK_TAR.partial" "$MVK_TAR"
+  fi
+  rm -rf "$WORK/moltenvk-extract"
+  mkdir -p "$WORK/moltenvk-extract"
+  tar -xf "$MVK_TAR" -C "$WORK/moltenvk-extract"
+  XC=""
+  while IFS= read -r cand; do
+    if [[ -d "$cand/ios-arm64" ]]; then
+      case "$cand" in
+        *static*) XC="$cand"; break ;;
+      esac
+      if [[ -z "$XC" ]]; then
+        XC="$cand"
+      fi
+    fi
+  done < <(find "$WORK/moltenvk-extract" -name 'MoltenVK.xcframework' -type d 2>/dev/null || true)
+  if [[ -z "$XC" ]]; then
+    echo "error: MoltenVK-ios.tar has no ios-arm64 xcframework slice" >&2
+    find "$WORK/moltenvk-extract" -maxdepth 4 -type d -print >&2 || true
+    exit 1
+  fi
+  rm -rf "$LIBDIR/moltenvk/MoltenVK.xcframework"
+  rsync -a "$XC" "$LIBDIR/moltenvk/"
+  echo "note: Staged $XC"
 fi
+if ! LIB="$(find_moltenvk_ios_lib)"; then
+  echo "error: MoltenVK ios-arm64 library still missing after download" >&2
+  exit 1
+fi
+stage_moltenvk_symlinks "$LIB"
 
 echo "===== shaderc ====="
 SHADERC_SRC="$(expand_package 'shaderc-*.tar.gz' shaderc)"
