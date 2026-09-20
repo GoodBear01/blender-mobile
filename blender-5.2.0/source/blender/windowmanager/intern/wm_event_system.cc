@@ -6049,8 +6049,6 @@ static bool wm_event_is_ignorable_key_press(const wmWindow *win, const wmEvent &
 }
 
 #ifdef BLENDER_MOBILE
-#  include <android/log.h>
-
 static uint8_t android_buttons = 0;
 static bool android_nav_armed = false;
 static bool android_ui_hold = false;
