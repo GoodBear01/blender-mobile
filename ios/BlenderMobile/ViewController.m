@@ -16,11 +16,10 @@
   title.translatesAutoresizingMaskIntoConstraints = NO;
 
   UILabel *body = [[UILabel alloc] init];
-  body.text = @"The full Blender editor is not in this install.\n\n"
-              @"On the Mac, from the repo root, run this and wait for it "
-              @"to finish (first time takes hours):\n\n"
-              @"  TEAM=YOUR_TEAM_ID ./ios/scripts/build_full_app.sh\n\n"
-              @"Opening the Xcode project alone only signs a placeholder.";
+  body.text = @"Xcode is still compiling the editor, or the libblender "
+              @"target failed.\n\n"
+              @"In Xcode: Product → Run and wait. First time takes hours.\n"
+              @"Open the Report navigator and select the libblender target.";
   body.textColor = [UIColor colorWithWhite:0.82 alpha:1];
   body.font = [UIFont systemFontOfSize:16];
   body.numberOfLines = 0;

@@ -36,16 +36,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 See [ios/README.md](ios/README.md). Compile and sign on a Mac. Developer Mode does not replace signing.
 
-The iOS app is the **full Blender editor** (SDL3 + MoltenVK), not a converted APK. Compile on a Mac:
-
-```bash
-git clone https://github.com/GoodBear01/blender-mobile.git
-cd blender-mobile
-chmod +x ios/scripts/*.sh
-TEAM=YOUR_TEAM_ID ./ios/scripts/build_full_app.sh
-```
-
-Do not open `blender-5.2.0/` in Xcode. See [ios/README.md](ios/README.md).
+The iOS app is the **full Blender editor** (SDL3 + MoltenVK). On a Mac open `ios/BlenderMobile.xcodeproj`, pick a Team, and Product → Run. That compiles the `libblender` target first, then installs the app. See [ios/README.md](ios/README.md).
 
 ## Trademark
 

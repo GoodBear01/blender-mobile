@@ -1,4 +1,4 @@
-This folder is filled on a Mac by `ios/scripts/stage_native.sh`.
+This folder is filled on a Mac by the Xcode `libblender` target (`ios/scripts/xcode_build_blender.sh` → `stage_native.sh`).
 
 It receives `libblender.dylib`, SDL3, MoltenVK, Python, and `Native.xcconfig`.
-Xcode includes `Native.xcconfig` when it exists so the app launches the full Blender UI.
+The app target embeds these and launches the full Blender UI.

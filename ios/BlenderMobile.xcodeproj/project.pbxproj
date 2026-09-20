@@ -125,6 +125,33 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXContainerItemProxy section */
+		A10000000000000000000083 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000080;
+			remoteInfo = libblender;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXLegacyTarget section */
+		A10000000000000000000080 /* libblender */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "\"$(SRCROOT)/scripts/xcode_build_blender.sh\"";
+			buildConfigurationList = A10000000000000000000084 /* Build configuration list for PBXLegacyTarget "libblender" */;
+			buildPhases = (
+			);
+			buildToolPath = /bin/bash;
+			buildWorkingDirectory = "$(SRCROOT)/..";
+			dependencies = (
+			);
+			name = libblender;
+			passBuildSettingsInEnvironment = 1;
+			productName = libblender;
+		};
+/* End PBXLegacyTarget section */
+
 /* Begin PBXNativeTarget section */
 		A10000000000000000000002 /* BlenderMobile */ = {
 			isa = PBXNativeTarget;
@@ -138,6 +165,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				A10000000000000000000082 /* PBXTargetDependency */,
 			);
 			name = BlenderMobile;
 			productName = BlenderMobile;
@@ -150,7 +178,7 @@
 		A10000000000000000000001 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
+				BuildIndependentTargetsInParallel = 0;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					A10000000000000000000002 = {
@@ -171,6 +199,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				A10000000000000000000080 /* libblender */,
 				A10000000000000000000002 /* BlenderMobile */,
 			);
 		};
@@ -207,7 +236,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nVENDOR=\"${SRCROOT}/Vendor\"\nROOT=\"$(cd \"${SRCROOT}/..\" && pwd)\"\nif [ ! -f \"$VENDOR/libblender.dylib\" ] && [ -d \"$ROOT/build_ios\" ]; then\n  FOUND=$(find \"$ROOT/build_ios\" -name libblender.dylib -print -quit || true)\n  if [ -n \"$FOUND\" ] && [ -x \"$ROOT/ios/scripts/stage_native.sh\" ]; then\n    \"$ROOT/ios/scripts/stage_native.sh\" || true\n  fi\nfi\nif [ ! -f \"$VENDOR/libblender.dylib\" ] && [ \"${STUB:-}\" != \"1\" ]; then\n  echo \"error: libblender.dylib is not built. The Xcode target is only a host.\" >&2\n  echo \"error: On the Mac run: TEAM=YourTeamID ./ios/scripts/build_full_app.sh\" >&2\n  exit 1\nfi\nDEST=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nRES=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\" \"$RES\"\nif [ -d \"$VENDOR\" ]; then\n  for f in \"$VENDOR\"/*.dylib; do\n    [ -f \"$f\" ] || continue\n    cp -f \"$f\" \"$DEST/\"\n    if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n      codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --timestamp=none \"$DEST/$(basename \"$f\")\" || true\n    fi\n  done\n  for f in \"$VENDOR\"/*.framework; do\n    [ -d \"$f\" ] || continue\n    rsync -a \"$f\" \"$DEST/\"\n  done\n  for xc in \"$VENDOR\"/*.xcframework; do\n    [ -d \"$xc\" ] || continue\n    slice=\"$xc/ios-arm64\"\n    if [ -d \"$slice\" ]; then\n      rsync -a \"$slice/\"* \"$DEST/\"\n    fi\n  done\nfi\nif [ -d \"$VENDOR/Runtime\" ]; then\n  rsync -a \"$VENDOR/Runtime\" \"$RES/\"\nelif [ -d \"${SRCROOT}/BlenderMobile/Runtime/blender\" ]; then\n  rsync -a \"${SRCROOT}/BlenderMobile/Runtime\" \"$RES/\"\nfi\n";
+			shellScript = "set -e\nVENDOR=\"${SRCROOT}/Vendor\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nRES=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\" \"$RES\"\nif [ ! -f \"$VENDOR/libblender.dylib\" ] && [ \"${STUB:-}\" != \"1\" ]; then\n  echo \"error: libblender.dylib is missing. The libblender target should have compiled it first.\" >&2\n  exit 1\nfi\nif [ -d \"$VENDOR\" ]; then\n  for f in \"$VENDOR\"/*.dylib; do\n    [ -f \"$f\" ] || continue\n    cp -f \"$f\" \"$DEST/\"\n    if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n      codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --timestamp=none \"$DEST/$(basename \"$f\")\" || true\n    fi\n  done\n  for f in \"$VENDOR\"/*.framework; do\n    [ -d \"$f\" ] || continue\n    rsync -a \"$f\" \"$DEST/\"\n  done\n  for xc in \"$VENDOR\"/*.xcframework; do\n    [ -d \"$xc\" ] || continue\n    slice=\"$xc/ios-arm64\"\n    if [ -d \"$slice\" ]; then\n      rsync -a \"$slice/\"* \"$DEST/\"\n    fi\n  done\nfi\nif [ -d \"$VENDOR/Runtime\" ]; then\n  rsync -a \"$VENDOR/Runtime\" \"$RES/\"\nelif [ -d \"${SRCROOT}/BlenderMobile/Runtime/blender\" ]; then\n  rsync -a \"${SRCROOT}/BlenderMobile/Runtime\" \"$RES/\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -226,6 +255,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000000000000000000082 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000080 /* libblender */;
+			targetProxy = A10000000000000000000083 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A10000000000000000000060 /* Debug */ = {
@@ -265,7 +302,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -325,7 +362,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -406,6 +443,20 @@
 			};
 			name = Release;
 		};
+		A10000000000000000000085 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = libblender;
+			};
+			name = Debug;
+		};
+		A10000000000000000000086 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = libblender;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -423,6 +474,15 @@
 			buildConfigurations = (
 				A10000000000000000000060 /* Debug */,
 				A10000000000000000000061 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A10000000000000000000084 /* Build configuration list for PBXLegacyTarget "libblender" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000085 /* Debug */,
+				A10000000000000000000086 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
