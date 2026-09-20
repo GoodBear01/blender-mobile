@@ -55,11 +55,11 @@ if(WIN32)
   list(APPEND SRC
     fsmenu_system_win32.cc
   )
-elseif(APPLE)
+elseif(APPLE AND NOT IOS)
   list(APPEND SRC
     fsmenu_system_macos.mm
   )
-else() # Generic UNIX
+else() # Generic UNIX (including iOS)
   list(APPEND SRC
     fsmenu_system_unix.cc
   )

@@ -70,7 +70,8 @@ fi
 
 BUILD_IOS_DIR="${BUILD_IOS:-$ROOT/build_ios}"
 if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] \
-    || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null; then
+    || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
+    || grep -q 'fsmenu_system_macos.mm' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
   echo "note: Configuring libblender"
   rm -f "$BUILD_IOS_DIR/CMakeCache.txt"
   /bin/bash "$WORK/configure_blender.sh"

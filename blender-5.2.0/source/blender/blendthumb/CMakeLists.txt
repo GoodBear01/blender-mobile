@@ -54,7 +54,7 @@ if(WIN32)
   set_target_properties(BlendThumb PROPERTIES LINK_FLAGS_DEBUG "/NODEFAULTLIB:msvcrt")
   set_target_properties(BlendThumb PROPERTIES VS_GLOBAL_VcpkgEnabled "false")
 
-elseif(APPLE)
+elseif(APPLE AND NOT IOS)
   # -----------------------------------------------------------------------------
   # Build `blender-thumbnailer.appex` app extension.
   set(SRC_APPEX
