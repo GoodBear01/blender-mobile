@@ -2,6 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=xcode_env.sh
+source "$ROOT/ios/scripts/xcode_env.sh"
+if ! ensure_cmake_ninja; then
+  exit 1
+fi
 BUILD="${BUILD_IOS:-$ROOT/build_ios}"
 
 if [[ ! -f "$BUILD/CMakeCache.txt" ]]; then

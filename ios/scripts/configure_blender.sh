@@ -2,6 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=xcode_env.sh
+source "$ROOT/ios/scripts/xcode_env.sh"
+if ! ensure_cmake_ninja; then
+  exit 1
+fi
 BLENDER="$ROOT/blender-5.2.0"
 BUILD="${BUILD_IOS:-$ROOT/build_ios}"
 TOOLCHAIN="$ROOT/ios/cmake/ios.toolchain.cmake"

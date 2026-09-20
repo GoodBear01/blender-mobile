@@ -1,17 +1,35 @@
 #!/usr/bin/env bash
-# Called by the Xcode libblender target. Compiles the full editor, not a stub.
-set -euo pipefail
-
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+# Called by Xcode (Run Script or libblender target). Compiles the full editor.
+set -eu
 
 if [[ -n "${SRCROOT:-}" ]]; then
   ROOT="$(cd "${SRCROOT}/.." && pwd)"
+elif [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 else
   ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 fi
 
+# Windows checkouts give scripts CRLF; bash then dies on `set -o pipefail`.
+for f in "$ROOT/ios/scripts/"*.sh; do
+  [[ -f "$f" ]] || continue
+  [[ "$f" -ef "$0" ]] && continue
+  tr -d '\r' < "$f" > "$f.lf"
+  mv "$f.lf" "$f"
+  chmod +x "$f" || true
+done
+
+# shellcheck source=xcode_env.sh
+source "$ROOT/ios/scripts/xcode_env.sh"
+set -o pipefail
+
 echo "note: Compiling full Blender UI for iOS into $ROOT"
 echo "note: First Xcode Run can take hours. Later Runs only rebuild what changed."
+
+if ! ensure_cmake_ninja; then
+  exit 1
+fi
+echo "note: cmake=$(command -v cmake) ninja=$(command -v ninja)"
 
 chmod +x "$ROOT/ios/scripts/"*.sh 2>/dev/null || true
 

@@ -12,8 +12,9 @@ SRC="$WORK/src"
 BUILD="$WORK/build"
 TOOLCHAIN="$ROOT/ios/cmake/ios.toolchain.cmake"
 
-if ! command -v cmake >/dev/null; then
-  echo "cmake is required. brew install cmake ninja" >&2
+# shellcheck source=xcode_env.sh
+source "$ROOT/ios/scripts/xcode_env.sh"
+if ! ensure_cmake_ninja; then
   exit 1
 fi
 if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then

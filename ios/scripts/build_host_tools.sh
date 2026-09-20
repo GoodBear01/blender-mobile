@@ -3,16 +3,22 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BUILD="${HOST_TOOLS_DIR:-$ROOT/build_host_tools_macos}"
-SRC="$ROOT/android/host_tools"
-
-if ! command -v cmake >/dev/null; then
-  echo "cmake is required. brew install cmake ninja" >&2
+# shellcheck source=xcode_env.sh
+source "$ROOT/ios/scripts/xcode_env.sh"
+if ! ensure_cmake_ninja; then
   exit 1
 fi
 
+BUILD="${HOST_TOOLS_DIR:-$ROOT/build_host_tools_macos}"
+SRC="$ROOT/android/host_tools"
+MACSDK="$(xcrun --sdk macosx --show-sdk-path)"
+
 mkdir -p "$BUILD"
-cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -S "$SRC" -B "$BUILD" -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_SYSTEM_NAME=Darwin \
+  -DCMAKE_OSX_SYSROOT="$MACSDK" \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
 cmake --build "$BUILD" --parallel
 echo "Host tools: $BUILD"
 ls -l "$BUILD/makesdna" "$BUILD/makesrna" "$BUILD/datatoc" "$BUILD/shader_tool"

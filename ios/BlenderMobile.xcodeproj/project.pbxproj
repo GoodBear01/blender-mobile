@@ -138,12 +138,12 @@
 /* Begin PBXLegacyTarget section */
 		A10000000000000000000080 /* libblender */ = {
 			isa = PBXLegacyTarget;
-			buildArgumentsString = "\"$(SRCROOT)/scripts/xcode_build_blender.sh\"";
+			buildArgumentsString = "$(SRCROOT)/scripts/xcode_build_blender.sh";
 			buildConfigurationList = A10000000000000000000084 /* Build configuration list for PBXLegacyTarget "libblender" */;
 			buildPhases = (
 			);
 			buildToolPath = /bin/bash;
-			buildWorkingDirectory = "$(SRCROOT)/..";
+			buildWorkingDirectory = "$(SRCROOT)";
 			dependencies = (
 			);
 			name = libblender;
@@ -157,6 +157,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000000000000000000070 /* Build configuration list for PBXNativeTarget "BlenderMobile" */;
 			buildPhases = (
+				A10000000000000000000014 /* Compile libblender */,
 				A10000000000000000000010 /* Sources */,
 				A10000000000000000000012 /* Frameworks */,
 				A10000000000000000000011 /* Resources */,
@@ -165,7 +166,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				A10000000000000000000082 /* PBXTargetDependency */,
 			);
 			name = BlenderMobile;
 			productName = BlenderMobile;
@@ -219,6 +219,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A10000000000000000000014 /* Compile libblender */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compile libblender";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -e\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"\nSCRIPT=\"${SRCROOT}/scripts/xcode_build_blender.sh\"\nif [ ! -f \"$SCRIPT\" ]; then\n  echo \"error: missing $SCRIPT. Open ios/BlenderMobile.xcodeproj from the cloned repo.\" >&2\n  exit 1\nfi\nTMP=\"${DERIVED_FILE_DIR:-/tmp}/xcode_build_blender.sh\"\nmkdir -p \"$(dirname \"$TMP\")\"\ntr -d '\\r' < \"$SCRIPT\" > \"$TMP\"\necho \"note: Compiling the full Blender editor. First Run can take hours.\"\n/bin/bash \"$TMP\"\n";
+			showEnvVarsInLog = 0;
+		};
 		A10000000000000000000013 /* Embed Native */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -236,7 +256,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nVENDOR=\"${SRCROOT}/Vendor\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nRES=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\" \"$RES\"\nif [ ! -f \"$VENDOR/libblender.dylib\" ] && [ \"${STUB:-}\" != \"1\" ]; then\n  echo \"error: libblender.dylib is missing. The libblender target should have compiled it first.\" >&2\n  exit 1\nfi\nif [ -d \"$VENDOR\" ]; then\n  for f in \"$VENDOR\"/*.dylib; do\n    [ -f \"$f\" ] || continue\n    cp -f \"$f\" \"$DEST/\"\n    if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n      codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --timestamp=none \"$DEST/$(basename \"$f\")\" || true\n    fi\n  done\n  for f in \"$VENDOR\"/*.framework; do\n    [ -d \"$f\" ] || continue\n    rsync -a \"$f\" \"$DEST/\"\n  done\n  for xc in \"$VENDOR\"/*.xcframework; do\n    [ -d \"$xc\" ] || continue\n    slice=\"$xc/ios-arm64\"\n    if [ -d \"$slice\" ]; then\n      rsync -a \"$slice/\"* \"$DEST/\"\n    fi\n  done\nfi\nif [ -d \"$VENDOR/Runtime\" ]; then\n  rsync -a \"$VENDOR/Runtime\" \"$RES/\"\nelif [ -d \"${SRCROOT}/BlenderMobile/Runtime/blender\" ]; then\n  rsync -a \"${SRCROOT}/BlenderMobile/Runtime\" \"$RES/\"\nfi\n";
+			shellScript = "set -e\nVENDOR=\"${SRCROOT}/Vendor\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nRES=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\" \"$RES\"\nif [ ! -f \"$VENDOR/libblender.dylib\" ] && [ \"${STUB:-}\" != \"1\" ]; then\n  echo \"error: libblender.dylib is missing. Open the Report navigator and read the Compile libblender phase.\" >&2\n  exit 1\nfi\nif [ -d \"$VENDOR\" ]; then\n  for f in \"$VENDOR\"/*.dylib; do\n    [ -f \"$f\" ] || continue\n    cp -f \"$f\" \"$DEST/\"\n    if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n      codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --timestamp=none \"$DEST/$(basename \"$f\")\" || true\n    fi\n  done\n  for f in \"$VENDOR\"/*.framework; do\n    [ -d \"$f\" ] || continue\n    rsync -a \"$f\" \"$DEST/\"\n  done\n  for xc in \"$VENDOR\"/*.xcframework; do\n    [ -d \"$xc\" ] || continue\n    slice=\"$xc/ios-arm64\"\n    if [ -d \"$slice\" ]; then\n      rsync -a \"$slice/\"* \"$DEST/\"\n    fi\n  done\nfi\nif [ -d \"$VENDOR/Runtime\" ]; then\n  rsync -a \"$VENDOR/Runtime\" \"$RES/\"\nelif [ -d \"${SRCROOT}/BlenderMobile/Runtime/blender\" ]; then\n  rsync -a \"${SRCROOT}/BlenderMobile/Runtime\" \"$RES/\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -392,6 +412,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BlenderMobile/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -424,6 +445,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BlenderMobile/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
