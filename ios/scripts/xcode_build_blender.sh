@@ -43,6 +43,7 @@ export IOS_SCRIPTS="$WORK"
 . "$WORK/xcode_env.sh"
 
 echo "note: Compiling full Blender UI for iOS into $ROOT"
+echo "note: git=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 echo "note: First Xcode Run can take hours. Later Runs only rebuild what changed."
 
 if ! ensure_cmake_ninja; then

@@ -8,6 +8,7 @@
  */
 
 #import "Foundation/Foundation.h"
+#import <TargetConditionals.h>
 
 #include "BLI_fileops.h"
 #include "BLI_path_utils.hh"
@@ -108,6 +109,11 @@ void fsmenu_read_system(FSMenu *fsmenu, int read_bookmarks)
                               FS_INSERT_FIRST);
   }
 
+#if TARGET_OS_IPHONE
+  /* Launch Services favorites do not exist in the iPhone SDK. Phone Documents
+   * bookmarks come from fsmenu_system_unix.cc when CMake selects that file. */
+  (void)read_bookmarks;
+#else
   /* The LSSharedFileList API has been deprecated, and no replacement has been provided to obtain
    * the user's Finder Favorites items from other applications. Ignore these deprecation warnings.
    * It is unknown when this API will be fully removed from macOS. */
@@ -158,6 +164,7 @@ void fsmenu_read_system(FSMenu *fsmenu, int read_bookmarks)
     CFRelease(shared_list);
 #pragma GCC diagnostic pop
   }
+#endif /* !TARGET_OS_IPHONE */
 }
 
 }  // namespace blender
