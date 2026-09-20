@@ -8,7 +8,19 @@ set(CMAKE_BUILD_TYPE Release)
 
 set(ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 set(BLENDER "${ROOT}/blender-5.2.0")
-set(FMT_INCLUDE "${BLENDER}/lib/android_arm64/fmt/include")
+if(NOT FMT_INCLUDE)
+  foreach(_fmt_cand
+      "${BLENDER}/lib/ios_arm64/fmt/include"
+      "${BLENDER}/lib/android_arm64/fmt/include")
+    if(EXISTS "${_fmt_cand}/fmt/format.h")
+      set(FMT_INCLUDE "${_fmt_cand}")
+      break()
+    endif()
+  endforeach()
+endif()
+if(NOT FMT_INCLUDE)
+  set(FMT_INCLUDE "${BLENDER}/extern/fmtlib/include")
+endif()
 
 add_compile_definitions(
   FMT_HEADER_ONLY=1

@@ -39,10 +39,12 @@ GHOST_WindowSDL::GHOST_WindowSDL(GHOST_SystemSDL *system,
 #ifdef WITH_VULKAN_BACKEND
   if (type == GHOST_kDrawingContextTypeVulkan) {
     window_flags |= SDL_WINDOW_VULKAN;
-#ifdef __ANDROID__
-    /* Exclusive fullscreen can keep the portrait size after rotation.
-     * The Android activity is already fullscreen via the theme. */
+#ifdef BLENDER_MOBILE
+    /* Phone hosts are already a single fullscreen surface. */
     window_flags |= SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED;
+#ifdef BLENDER_IOS
+    window_flags |= SDL_WINDOW_FULLSCREEN;
+#endif
 #endif
   }
   else

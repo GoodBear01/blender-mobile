@@ -18,5 +18,5 @@ if [[ -d "$PY_LIB/lib/python3.13" ]]; then
   mkdir -p "$DEST/python/lib"
   rsync -a "$PY_LIB/lib/python3.13" "$DEST/python/lib/"
 fi
-echo "5.2.0-ios1" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
+echo "5.2.0-ios-full1" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
 echo "Packed runtime into $DEST"

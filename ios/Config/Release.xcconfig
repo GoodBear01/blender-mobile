@@ -1,0 +1,4 @@
+#include "Base.xcconfig"
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+VALIDATE_PRODUCT = YES
+ENABLE_NS_ASSERTIONS = NO

@@ -5,6 +5,7 @@
 build_android/
 build_host_tools/
 build_ios/
+build_host_tools_macos/
 packages/
 blender-5.2.0/lib/
 

@@ -700,14 +700,20 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 #endif
 
 #if defined(BLENDER_IOS)
-/* The Xcode app keeps process main() and calls this after unpacking the runtime. */
-extern "C" __attribute__((used, visibility("default"))) int blender_ios_main(int argc,
-                                                                            char *argv[])
+static int blender_ios_sdl_main(int argc, char *argv[])
 {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+  SDL_SetHint("SDL_VULKAN_LIBRARY", "MoltenVK");
   SDL_SetMainReady();
   return main(argc, const_cast<const char **>(argv));
+}
+
+/* Process main() stays in the Xcode app. SDL_RunApp starts UIKit, then this. */
+extern "C" __attribute__((used, visibility("default"))) int blender_ios_main(int argc,
+                                                                            char *argv[])
+{
+  return SDL_RunApp(argc, argv, blender_ios_sdl_main, nullptr);
 }
 #endif
 

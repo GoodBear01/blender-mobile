@@ -112,8 +112,38 @@ if(WITH_VULKAN_BACKEND)
   if(NOT DEFINED SHADERC_ROOT_DIR)
     set(SHADERC_ROOT_DIR ${LIBDIR}/shaderc)
   endif()
+  if(NOT Vulkan_INCLUDE_DIR AND EXISTS "${LIBDIR}/vulkan/include/vulkan/vulkan.h")
+    set(Vulkan_INCLUDE_DIR "${LIBDIR}/vulkan/include" CACHE PATH "" FORCE)
+  endif()
+  if(NOT Vulkan_LIBRARY)
+    file(GLOB _mvk_cands
+      "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+      "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+      "${LIBDIR}/moltenvk/lib/libMoltenVK.a"
+      "${LIBDIR}/moltenvk/lib/libMoltenVK.dylib"
+    )
+    if(_mvk_cands)
+      list(GET _mvk_cands 0 Vulkan_LIBRARY)
+      set(Vulkan_LIBRARY "${Vulkan_LIBRARY}" CACHE FILEPATH "" FORCE)
+      set(MOLTENVK_LIBRARY "${Vulkan_LIBRARY}" CACHE FILEPATH "" FORCE)
+    endif()
+    unset(_mvk_cands)
+  endif()
   find_package_wrapper(Vulkan REQUIRED)
   find_package_wrapper(ShaderC REQUIRED)
+endif()
+
+if(EXISTS "${LIBDIR}/python/include/python3.13/Python.h")
+  set(PYTHON_INCLUDE_DIR "${LIBDIR}/python/include/python3.13" CACHE PATH "" FORCE)
+  set(PYTHON_INCLUDE_CONFIG_DIR "${LIBDIR}/python/include/python3.13" CACHE PATH "" FORCE)
+endif()
+if(EXISTS "${LIBDIR}/python/lib/libpython3.13.a")
+  set(PYTHON_LIBRARY "${LIBDIR}/python/lib/libpython3.13.a" CACHE FILEPATH "" FORCE)
+elseif(EXISTS "${LIBDIR}/python/lib/libpython3.13.dylib")
+  set(PYTHON_LIBRARY "${LIBDIR}/python/lib/libpython3.13.dylib" CACHE FILEPATH "" FORCE)
+endif()
+if(EXISTS "${LIBDIR}/python/lib/python3.13/abc.py")
+  set(PYTHON_LIBPATH "${LIBDIR}/python/lib" CACHE PATH "" FORCE)
 endif()
 
 if(NOT WITH_SYSTEM_FREETYPE)

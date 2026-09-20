@@ -42,6 +42,9 @@
 		A10000000000000000000035 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A10000000000000000000036 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		A10000000000000000000037 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		A10000000000000000000038 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		A10000000000000000000039 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		A1000000000000000000003A /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000051 /* BlenderMobile */,
+				A10000000000000000000054 /* Config */,
 				A10000000000000000000052 /* Frameworks */,
 				A10000000000000000000053 /* Products */,
 			);
@@ -108,6 +112,17 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A10000000000000000000054 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000038 /* Base.xcconfig */,
+				A10000000000000000000039 /* Debug.xcconfig */,
+				A1000000000000000000003A /* Release.xcconfig */,
+			);
+			name = Config;
+			path = Config;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -118,6 +133,7 @@
 				A10000000000000000000010 /* Sources */,
 				A10000000000000000000012 /* Frameworks */,
 				A10000000000000000000011 /* Resources */,
+				A10000000000000000000013 /* Embed Native */,
 			);
 			buildRules = (
 			);
@@ -173,6 +189,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A10000000000000000000013 /* Embed Native */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Native";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "VENDOR=\"${SRCROOT}/Vendor\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nRES=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\" \"$RES\"\nif [ -d \"$VENDOR\" ]; then\n  for f in \"$VENDOR\"/*.dylib; do\n    [ -f \"$f\" ] || continue\n    cp -f \"$f\" \"$DEST/\"\n    if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n      codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --timestamp=none \"$DEST/$(basename \"$f\")\" || true\n    fi\n  done\n  for f in \"$VENDOR\"/*.framework; do\n    [ -d \"$f\" ] || continue\n    rsync -a \"$f\" \"$DEST/\"\n  done\n  for xc in \"$VENDOR\"/*.xcframework; do\n    [ -d \"$xc\" ] || continue\n    slice=\"$xc/ios-arm64\"\n    if [ -d \"$slice\" ]; then\n      rsync -a \"$slice/\"* \"$DEST/\"\n    fi\n  done\nfi\nif [ -d \"$VENDOR/Runtime\" ]; then\n  rsync -a \"$VENDOR/Runtime\" \"$RES/\"\nelif [ -d \"${SRCROOT}/BlenderMobile/Runtime/blender\" ]; then\n  rsync -a \"${SRCROOT}/BlenderMobile/Runtime\" \"$RES/\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000010 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -192,6 +230,7 @@
 /* Begin XCBuildConfiguration section */
 		A10000000000000000000060 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10000000000000000000039 /* Debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -251,6 +290,7 @@
 		};
 		A10000000000000000000061 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1000000000000000000003A /* Release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

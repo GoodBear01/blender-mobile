@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the lite iOS-arm64 dependency set into blender-5.2.0/lib/ios_arm64.
-# Must run on a Mac with Xcode and cmake.
+# Must run on a Mac with Xcode, cmake, and ninja.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -13,7 +13,7 @@ BUILD="$WORK/build"
 TOOLCHAIN="$ROOT/ios/cmake/ios.toolchain.cmake"
 
 if ! command -v cmake >/dev/null; then
-  echo "cmake is required. brew install cmake" >&2
+  echo "cmake is required. brew install cmake ninja" >&2
   exit 1
 fi
 if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
@@ -21,12 +21,14 @@ if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
   exit 1
 fi
 
+"$ROOT/ios/scripts/download_packages.sh"
+
 mkdir -p "$LIBDIR" "$SRC" "$BUILD"
 
 expand_package() {
   local pattern="$1" dest_name="$2"
   local dest="$SRC/$dest_name"
-  if [[ -f "$dest/CMakeLists.txt" || -f "$dest/configure" ]]; then
+  if [[ -f "$dest/CMakeLists.txt" || -f "$dest/configure" || -f "$dest/include/vulkan/vulkan.h" ]]; then
     echo "$dest"
     return
   fi
@@ -67,6 +69,7 @@ cmake_dep() {
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_PREFIX_PATH="$LIBDIR" \
     -DCMAKE_FIND_ROOT_PATH="$LIBDIR" \
+    -DCMAKE_POLICY_DEFAULT_CMP0074=NEW \
     -DBUILD_SHARED_LIBS=OFF \
     "$@"
   echo "===== Building $name ====="
@@ -74,10 +77,6 @@ cmake_dep() {
   cmake --install "$bdir"
   date -Iseconds >"$prefix/.built"
 }
-
-# zlib, zstd, brotli, fmt, eigen, png, jpeg, tiff, freetype, imath, openexr,
-# expat, yaml-cpp, SDL3, vulkan headers, shaderc, tbb, python, moltenvk.
-# Sources can come from packages/ (same archives as Android) or ios/.deps/src.
 
 if [[ -d "$ROOT/android/.deps/src" && ! -d "$SRC/sdl3" ]]; then
   echo "Reusing extracted sources under android/.deps/src where present."
@@ -91,54 +90,190 @@ cmake_dep brotli "$(expand_package 'brotli-*.tar.gz' brotli)" "$LIBDIR/brotli" \
 cmake_dep fmt "$(expand_package 'fmt-*.tar.gz' fmt)" "$LIBDIR/fmt" \
   -DFMT_TEST=OFF -DFMT_DOC=OFF
 cmake_dep eigen "$(expand_package 'eigen-*.tar.gz' eigen)" "$LIBDIR/eigen" \
-  -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC=OFF
-cmake_dep png "$(expand_package 'libpng-*.tar.xz' libpng)" "$LIBDIR/png" \
+  -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC=OFF -DEIGEN_BUILD_PKGCONFIG=OFF
+cmake_dep png "$(expand_package 'libpng-*.tar.*' libpng)" "$LIBDIR/png" \
   -DPNG_SHARED=OFF -DPNG_TESTS=OFF -DZLIB_ROOT="$LIBDIR/zlib"
 cmake_dep jpeg "$(expand_package 'libjpeg-turbo-*.tar.gz' libjpeg-turbo)" "$LIBDIR/jpeg" \
   -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=ON
+cmake_dep tiff "$(expand_package 'tiff-*.tar.gz' tiff)" "$LIBDIR/tiff" \
+  -Dtiff-tools=OFF -Dtiff-tests=OFF -Dtiff-docs=OFF -DZLIB_ROOT="$LIBDIR/zlib" -DJPEG_ROOT="$LIBDIR/jpeg"
 
-echo "===== SDL3 xcframework ====="
-SDL_SRC="${SDL_SRC:-$ROOT/android/.deps/src/sdl3}"
-if [[ ! -d "$SDL_SRC" ]]; then
-  SDL_SRC="$(expand_package 'SDL3-*.tar.gz' sdl3)"
+ZLIB_A="$(find "$LIBDIR/zlib" -name 'libz.a' | head -n 1)"
+BROTLI_A="$(find "$LIBDIR/brotli" -name 'libbrotlidec.a' | head -n 1)"
+cmake_dep freetype "$(expand_package 'freetype-*.tar.gz' freetype)" "$LIBDIR/freetype" \
+  -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BZIP2=ON -DFT_REQUIRE_ZLIB=ON \
+  -DFT_REQUIRE_BROTLI=ON -DFT_DISABLE_PNG=ON \
+  -DZLIB_INCLUDE_DIR="$LIBDIR/zlib/include" -DZLIB_LIBRARY="$ZLIB_A" \
+  -DBROTLIDEC_INCLUDE_DIRS="$LIBDIR/brotli/include" -DBROTLIDEC_LIBRARIES="$BROTLI_A"
+
+cmake_dep imath "$(expand_package 'imath-*.tar.gz' imath)" "$LIBDIR/imath" \
+  -DBUILD_TESTING=OFF
+cmake_dep openexr "$(expand_package 'openexr-*.tar.gz' openexr)" "$LIBDIR/openexr" \
+  -DBUILD_TESTING=OFF -DOPENEXR_BUILD_TOOLS=OFF -DOPENEXR_INSTALL_EXAMPLES=OFF \
+  -DImath_ROOT="$LIBDIR/imath" -DZLIB_ROOT="$LIBDIR/zlib"
+
+OPENJPH="$(find "$BUILD/openexr" -name 'libopenjph.a' | head -n 1 || true)"
+if [[ -n "$OPENJPH" ]]; then
+  mkdir -p "$LIBDIR/openjph/lib" "$LIBDIR/openexr/lib"
+  cp -f "$OPENJPH" "$LIBDIR/openjph/lib/libopenjph.a"
+  cp -f "$OPENJPH" "$LIBDIR/openexr/lib/libopenjph.a"
 fi
-if [[ ! -f "$LIBDIR/sdl/.built" ]]; then
-  if [[ -f "$SDL_SRC/Xcode/SDL/SDL.xcodeproj/project.pbxproj" ]]; then
-    xcodebuild -project "$SDL_SRC/Xcode/SDL/SDL.xcodeproj" \
-      -scheme SDL3 \
-      -sdk iphoneos \
-      -arch arm64 \
-      -configuration Release \
-      BUILD_DIR="$BUILD/sdl3" \
-      CODE_SIGNING_ALLOWED=NO
-  else
-    cmake_dep sdl "$SDL_SRC" "$LIBDIR/sdl" \
-      -DSDL_SHARED=ON -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF
-  fi
-  mkdir -p "$LIBDIR/sdl"
-  date -Iseconds >"$LIBDIR/sdl/.built"
+
+EXPAT_SRC="$(expand_package 'libexpat-*.tar.gz' expat)"
+if [[ -f "$EXPAT_SRC/expat/CMakeLists.txt" ]]; then
+  EXPAT_SRC="$EXPAT_SRC/expat"
+fi
+cmake_dep expat "$EXPAT_SRC" "$LIBDIR/expat" \
+  -DEXPAT_SHARED_LIBS=OFF -DEXPAT_BUILD_TESTS=OFF -DEXPAT_BUILD_TOOLS=OFF -DEXPAT_BUILD_EXAMPLES=OFF
+cmake_dep yaml-cpp "$(expand_package 'yaml-cpp-*.tar.gz' yaml-cpp)" "$LIBDIR/yaml-cpp" \
+  -DYAML_BUILD_SHARED_LIBS=OFF -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF
+
+PYSTRING_SRC="$(expand_package 'pystring-*.tar.gz' pystring)"
+if [[ ! -f "$PYSTRING_SRC/CMakeLists.txt" ]]; then
+  cat >"$PYSTRING_SRC/CMakeLists.txt" <<'EOF'
+cmake_minimum_required(VERSION 3.16)
+project(pystring CXX)
+add_library(pystring STATIC pystring.cpp)
+target_include_directories(pystring PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include>)
+install(TARGETS pystring ARCHIVE DESTINATION lib)
+install(FILES pystring.h DESTINATION include)
+EOF
+fi
+cmake_dep pystring "$PYSTRING_SRC" "$LIBDIR/pystring"
+cmake_dep minizip "$(expand_package 'minizip-ng-*.tar.gz' minizip-ng)" "$LIBDIR/minizip-ng" \
+  -DMZ_COMPAT=OFF -DMZ_BZIP2=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=ON \
+  -DMZ_OPENSSL=OFF -DMZ_LIBCOMP=OFF -DZLIB_ROOT="$LIBDIR/zlib" -Dzstd_ROOT="$LIBDIR/zstd"
+cmake_dep opencolorio "$(expand_package 'OpenColorIO-*.tar.gz' opencolorio)" "$LIBDIR/opencolorio" \
+  -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF \
+  -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_DOCS=OFF \
+  -DImath_ROOT="$LIBDIR/imath" -Dexpat_ROOT="$LIBDIR/expat" \
+  -Dyaml-cpp_DIR="$LIBDIR/yaml-cpp/lib/cmake/yaml-cpp" \
+  -Dminizip-ng_ROOT="$LIBDIR/minizip-ng"
+cmake_dep tbb "$(expand_package 'oneTBB-*.tar.gz' tbb)" "$LIBDIR/tbb" \
+  -DTBB_TEST=OFF -DTBB_STRICT=OFF -DBUILD_SHARED_LIBS=ON \
+  -DTBBMALLOC_BUILD=OFF -DTBBMALLOC_PROXY_BUILD=OFF
+cmake_dep sdl "$(expand_package 'SDL3-*.tar.gz' sdl3)" "$LIBDIR/sdl" \
+  -DSDL_SHARED=ON -DSDL_STATIC=ON -DSDL_TEST_LIBRARY=OFF -DSDL_CAMERA=OFF
+
+echo "===== Vulkan headers ====="
+if [[ ! -f "$LIBDIR/vulkan/.built" ]]; then
+  VK_SRC="$(expand_package 'Vulkan-Headers-*.tar.gz' vulkan-headers)"
+  mkdir -p "$LIBDIR/vulkan/include"
+  rsync -a "$VK_SRC/include/" "$LIBDIR/vulkan/include/"
+  date -Iseconds >"$LIBDIR/vulkan/.built"
 fi
 
 echo "===== MoltenVK ====="
 if [[ ! -f "$LIBDIR/moltenvk/.built" ]]; then
+  mkdir -p "$LIBDIR/moltenvk"
   if command -v brew >/dev/null && brew list molten-vk >/dev/null 2>&1; then
-    mkdir -p "$LIBDIR/moltenvk"
-    echo "Use the MoltenVK xcframework from Homebrew when linking the Xcode app."
-    date -Iseconds >"$LIBDIR/moltenvk/.built"
-  else
-    echo "Install MoltenVK on the Mac: brew install molten-vk"
-    echo "Then copy MoltenVK.xcframework into the Xcode project's Frameworks."
+    MVK_XC="$(brew --prefix molten-vk)/share/vulkan/MoltenVK.xcframework"
+    if [[ ! -d "$MVK_XC" ]]; then
+      MVK_XC="$(find "$(brew --prefix molten-vk)" -name 'MoltenVK.xcframework' | head -n 1 || true)"
+    fi
+    if [[ -d "$MVK_XC" ]]; then
+      rsync -a "$MVK_XC" "$LIBDIR/moltenvk/"
+    fi
   fi
+  if [[ ! -d "$LIBDIR/moltenvk/MoltenVK.xcframework" ]]; then
+    echo "Downloading MoltenVK xcframework..."
+    MVK_TAR="$WORK/MoltenVK.tar"
+    curl -L --fail -o "$MVK_TAR" \
+      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.11/MoltenVK-macos.tar" \
+      || curl -L --fail -o "$MVK_TAR" \
+      "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.3.0/MoltenVK-macos.tar"
+    mkdir -p "$WORK/moltenvk-extract"
+    tar -xf "$MVK_TAR" -C "$WORK/moltenvk-extract"
+    XC="$(find "$WORK/moltenvk-extract" -name 'MoltenVK.xcframework' | head -n 1 || true)"
+    if [[ -z "$XC" ]]; then
+      echo "Install MoltenVK: brew install molten-vk" >&2
+      exit 1
+    fi
+    rsync -a "$XC" "$LIBDIR/moltenvk/"
+  fi
+  date -Iseconds >"$LIBDIR/moltenvk/.built"
 fi
 
-echo "===== Vulkan headers ====="
-if [[ ! -f "$LIBDIR/vulkan/.built" ]]; then
-  VULKAN_SRC="${VULKAN_SRC:-$ROOT/android/.deps/src/vulkan-headers}"
-  if [[ -d "$VULKAN_SRC" ]]; then
-    cmake_dep vulkan "$VULKAN_SRC" "$LIBDIR/vulkan"
-  else
-    echo "Unpack vulkan-headers into android/.deps/src/vulkan-headers or packages/"
+echo "===== shaderc ====="
+SHADERC_SRC="$(expand_package 'shaderc-*.tar.gz' shaderc)"
+THIRD="$SHADERC_SRC/third_party"
+mkdir -p "$THIRD"
+clone_rev() {
+  local url="$1" rev="$2" dest="$3"
+  if [[ -f "$dest/CMakeLists.txt" ]]; then
+    return
   fi
+  rm -rf "$dest"
+  git clone --depth 1 "$url" "$dest"
+}
+clone_rev "https://github.com/KhronosGroup/glslang.git" "d213562e35573012b6348b2d584457c3704ac09b" "$THIRD/glslang"
+clone_rev "https://github.com/KhronosGroup/SPIRV-Headers.git" "01e0577914a75a2569c846778c2f93aa8e6feddd" "$THIRD/spirv-headers"
+clone_rev "https://github.com/KhronosGroup/SPIRV-Tools.git" "19042c8921f35f7bec56b9e5c96c5f5691588ca8" "$THIRD/spirv-tools"
+cmake_dep shaderc "$SHADERC_SRC" "$LIBDIR/shaderc" \
+  -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
+  -DSPIRV_SKIP_EXECUTABLES=ON -DSPIRV_SKIP_TESTS=ON -DENABLE_GLSLANG_BINARIES=OFF \
+  -DPYTHON_EXECUTABLE="$(command -v python3)"
+
+if [[ ! -f "$LIBDIR/robin-map/.built" ]]; then
+  ROBIN_ZIP="$WORK/robin-map.zip"
+  curl -L --fail -o "$ROBIN_ZIP" "https://github.com/Tessil/robin-map/archive/refs/tags/v1.4.0.zip"
+  rm -rf "$WORK/robin-map-src"
+  mkdir -p "$WORK/robin-map-src"
+  tar -xf "$ROBIN_ZIP" -C "$WORK/robin-map-src" 2>/dev/null || unzip -q "$ROBIN_ZIP" -d "$WORK/robin-map-src"
+  ROBIN_INNER="$(find "$WORK/robin-map-src" -mindepth 1 -maxdepth 1 | head -n 1)"
+  cmake_dep robin-map "$ROBIN_INNER" "$LIBDIR/robin-map"
+fi
+
+cmake_dep openimageio "$(expand_package 'OpenImageIO-*.tar.gz' openimageio)" "$LIBDIR/openimageio" \
+  -DRobinmap_ROOT="$LIBDIR/robin-map" -DRobinMap_ROOT="$LIBDIR/robin-map" \
+  -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF -DBUILD_TESTING=OFF \
+  -DUSE_PYTHON=OFF -DUSE_QT=OFF -DUSE_OPENGL=OFF -DUSE_OPENCV=OFF \
+  -DUSE_FREETYPE=OFF -DUSE_GIF=OFF -DUSE_OPENJPEG=OFF -DUSE_WEBP=OFF \
+  -DUSE_FFMPEG=OFF -DUSE_PTEX=OFF -DUSE_LIBHEIF=OFF -DUSE_LIBRAW=OFF \
+  -DOpenEXR_ROOT="$LIBDIR/openexr" -DImath_ROOT="$LIBDIR/imath" \
+  -DZLIB_ROOT="$LIBDIR/zlib" -Dfmt_ROOT="$LIBDIR/fmt" \
+  -DJPEG_ROOT="$LIBDIR/jpeg" -DPNG_ROOT="$LIBDIR/png" -DTIFF_ROOT="$LIBDIR/tiff"
+
+echo "===== Python 3.13 for iOS ====="
+if [[ ! -f "$LIBDIR/python/.built" ]]; then
+  PY_SUPPORT="$WORK/python-apple-support"
+  if [[ ! -d "$PY_SUPPORT/iOS" ]]; then
+    mkdir -p "$WORK"
+    PY_TAR="$WORK/Python-iOS-support.tar.gz"
+    set +e
+    curl -L --fail -o "$PY_TAR" \
+      "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b11/Python-3.13-iOS-support.b11.tar.gz"
+    if [[ $? -ne 0 ]]; then
+      curl -L --fail -o "$PY_TAR" \
+        "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b8/Python-3.13-iOS-support.b8.tar.gz"
+    fi
+    set -e
+    rm -rf "$PY_SUPPORT"
+    mkdir -p "$PY_SUPPORT"
+    tar -xf "$PY_TAR" -C "$PY_SUPPORT"
+  fi
+  FW="$(find "$PY_SUPPORT" -name 'Python.xcframework' | head -n 1 || true)"
+  SLICE=""
+  if [[ -n "$FW" ]]; then
+    SLICE="$(find "$FW" -path '*ios-arm64*' -name 'Python.framework' | head -n 1 || true)"
+  fi
+  mkdir -p "$LIBDIR/python/include/python3.13" "$LIBDIR/python/lib/python3.13"
+  if [[ -n "$SLICE" && -d "$SLICE/Headers" ]]; then
+    rsync -a "$SLICE/Headers/" "$LIBDIR/python/include/python3.13/"
+    if [[ -f "$SLICE/Python" ]]; then
+      cp -f "$SLICE/Python" "$LIBDIR/python/lib/libpython3.13.dylib"
+    fi
+    rsync -a "$SLICE" "$LIBDIR/python/Python.framework"
+  fi
+  STDLIB="$(find "$PY_SUPPORT" -type d -name 'python3.13' | head -n 1 || true)"
+  if [[ -n "$STDLIB" && -f "$STDLIB/abc.py" ]]; then
+    rsync -a "$STDLIB/" "$LIBDIR/python/lib/python3.13/"
+  fi
+  if [[ ! -f "$LIBDIR/python/include/python3.13/Python.h" ]]; then
+    echo "Python-Apple-support did not unpack headers. Install that release or place Python.h in $LIBDIR/python/include/python3.13" >&2
+    exit 1
+  fi
+  date -Iseconds >"$LIBDIR/python/.built"
 fi
 
 cat >"$LIBDIR/README.md" <<'EOF'
@@ -146,6 +281,4 @@ iOS arm64 prebuilts produced by ios/scripts/build_deps.sh on a Mac.
 Android lib/android_arm64 binaries cannot be reused here.
 EOF
 
-echo "iOS dependency build finished. Remaining optional deps (Python, OpenImageIO, TBB, shaderc)"
-echo "use the same cmake_dep pattern as android/build_deps.ps1 once their sources are unpacked."
-echo "LIBDIR=$LIBDIR"
+echo "iOS dependency build finished. LIBDIR=$LIBDIR"

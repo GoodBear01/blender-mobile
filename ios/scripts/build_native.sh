@@ -9,5 +9,10 @@ if [[ ! -f "$BUILD/CMakeCache.txt" ]]; then
 fi
 
 cmake --build "$BUILD" --target blender --parallel
-echo "Native iOS Blender library is in $BUILD/lib or $BUILD/bin"
-echo "Add that library plus SDL3 and MoltenVK to the Xcode app target, then Product > Run."
+LIB="$(find "$BUILD" -name 'libblender.dylib' -print -quit || true)"
+if [[ -z "$LIB" ]]; then
+  echo "libblender.dylib was not produced" >&2
+  exit 1
+fi
+echo "Native iOS Blender library: $LIB"
+echo "Next: ios/scripts/stage_native.sh && TEAM=... ./ios/scripts/install_device.sh"

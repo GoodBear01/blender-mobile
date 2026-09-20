@@ -6,7 +6,7 @@
 extern int blender_ios_main(int argc, char **argv);
 #endif
 
-static NSString *const kRuntimeVersion = @"5.2.0-ios1";
+static NSString *const kRuntimeVersion = @"5.2.0-ios-full1";
 
 @implementation BlenderHost
 
@@ -53,7 +53,8 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios1";
 
   NSString *home = docs.path;
   NSString *resources = [runtime URLByAppendingPathComponent:@"blender/5.2"].path;
-  /* Do not overwrite HOME or TMPDIR. UIKit aborts if those move before/during launch. */
+  NSString *pythonHome = [resources stringByAppendingPathComponent:@"python"];
+  /* Never overwrite HOME/TMPDIR: UIKit uses the sandbox container. */
   [self setEnv:"BLENDER_IOS" value:@"1"];
   [self setEnv:"BLENDER_MOBILE" value:@"1"];
   [self setEnv:"BLENDER_USER_RESOURCES" value:home];
@@ -64,6 +65,10 @@ static NSString *const kRuntimeVersion = @"5.2.0-ios1";
   [self setEnv:"BLENDER_ANDROID_BLENDS" value:[home stringByAppendingPathComponent:@"Blender"]];
   [self setEnv:"BLENDER_ANDROID_DOCUMENTS" value:home];
   [self setEnv:"BLENDER_ANDROID_DOWNLOADS" value:home];
+  if ([fm fileExistsAtPath:pythonHome]) {
+    [self setEnv:"PYTHONHOME" value:pythonHome];
+    [self setEnv:"PYTHONPATH" value:[pythonHome stringByAppendingPathComponent:@"lib/python3.13"]];
+  }
 }
 
 + (BOOL)canLaunchBlender

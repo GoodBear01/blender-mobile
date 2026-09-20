@@ -1,5 +1,10 @@
 .deps/
 BlenderMobile/Runtime/
+Vendor/*.dylib
+Vendor/*.framework
+Vendor/*.xcframework
+Vendor/Runtime/
+Vendor/Native.xcconfig
 *.xcuserstate
 xcuserdata/
 DerivedData/

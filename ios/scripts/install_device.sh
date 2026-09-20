@@ -34,8 +34,11 @@ echo "== devices =="
 xcrun devicectl list devices || true
 xcrun xctrace list devices 2>/dev/null || true
 
-echo "== building the iOS stub (ios/BlenderMobile.xcodeproj) =="
-echo "This does not compile blender-5.2.0. Full editor needs ./ios/scripts/build_deps.sh first."
+if [[ -f "$ROOT/ios/Vendor/libblender.dylib" ]]; then
+  echo "== building the full Blender UI (libblender + MoltenVK) =="
+else
+  echo "== building the iOS stub; for the full editor run ./ios/scripts/build_full_app.sh =="
+fi
 xcodebuild \
   -project "$PROJ" \
   -scheme BlenderMobile \
