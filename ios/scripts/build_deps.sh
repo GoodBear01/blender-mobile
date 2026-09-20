@@ -380,40 +380,72 @@ cmake_dep openimageio "$(expand_package 'OpenImageIO-*.tar.gz' openimageio)" "$L
 echo "===== Python 3.13 for iOS ====="
 if [[ ! -f "$LIBDIR/python/.built" ]]; then
   PY_SUPPORT="$WORK/python-apple-support"
-  if [[ ! -d "$PY_SUPPORT/iOS" ]]; then
+  PY_TAR="$WORK/Python-iOS-support.tar.gz"
+  if [[ ! -f "$PY_SUPPORT/.extracted" ]]; then
     mkdir -p "$WORK"
-    PY_TAR="$WORK/Python-iOS-support.tar.gz"
     set +e
     curl -L --fail -o "$PY_TAR" \
-      "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b11/Python-3.13-iOS-support.b11.tar.gz"
-    if [[ $? -ne 0 ]]; then
-      curl -L --fail -o "$PY_TAR" \
-        "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b8/Python-3.13-iOS-support.b8.tar.gz"
-    fi
+      "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b15/Python-3.13-iOS-support.b15.tar.gz" \
+    || curl -L --fail -o "$PY_TAR" \
+      "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b11/Python-3.13-iOS-support.b11.tar.gz" \
+    || curl -L --fail -o "$PY_TAR" \
+      "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b8/Python-3.13-iOS-support.b8.tar.gz"
     set -e
+    if [[ ! -s "$PY_TAR" ]]; then
+      echo "error: failed to download Python-Apple-support" >&2
+      exit 1
+    fi
     rm -rf "$PY_SUPPORT"
     mkdir -p "$PY_SUPPORT"
     tar -xf "$PY_TAR" -C "$PY_SUPPORT"
+    date -Iseconds >"$PY_SUPPORT/.extracted"
   fi
-  FW="$(find "$PY_SUPPORT" -name 'Python.xcframework' | head -n 1 || true)"
-  SLICE=""
-  if [[ -n "$FW" ]]; then
-    SLICE="$(find "$FW" -path '*ios-arm64*' -name 'Python.framework' | head -n 1 || true)"
+  echo "note: BeeWare Python entries:"
+  set +o pipefail
+  find "$PY_SUPPORT" \( -name 'Python.h' -o -name 'libpython3.13*' -o -name 'Python.xcframework' -o -name 'Python.framework' -o -name 'abc.py' \) | head -n 40
+  HDR="$(find "$PY_SUPPORT" -name 'Python.h' | grep -v simulator | head -n 1)"
+  if [[ -z "$HDR" ]]; then
+    HDR="$(find "$PY_SUPPORT" -name 'Python.h' | head -n 1)"
   fi
+  LIBPY="$(find "$PY_SUPPORT" \( -name 'libpython3.13.a' -o -name 'libpython3.13.dylib' \) | grep -v simulator | head -n 1)"
+  if [[ -z "$LIBPY" ]]; then
+    LIBPY="$(find "$PY_SUPPORT" \( -name 'libpython3.13.a' -o -name 'libpython3.13.dylib' \) | head -n 1)"
+  fi
+  FWBIN="$(find "$PY_SUPPORT" -path '*ios-arm64*' -name 'Python' -type f | grep -v simulator | head -n 1)"
+  STDLIB_PY="$(find "$PY_SUPPORT" -name 'abc.py' | grep -v simulator | head -n 1)"
+  if [[ -z "$STDLIB_PY" ]]; then
+    STDLIB_PY="$(find "$PY_SUPPORT" -name 'abc.py' | head -n 1)"
+  fi
+  set -o pipefail
+
   mkdir -p "$LIBDIR/python/include/python3.13" "$LIBDIR/python/lib/python3.13"
-  if [[ -n "$SLICE" && -d "$SLICE/Headers" ]]; then
-    rsync -a "$SLICE/Headers/" "$LIBDIR/python/include/python3.13/"
-    if [[ -f "$SLICE/Python" ]]; then
-      cp -f "$SLICE/Python" "$LIBDIR/python/lib/libpython3.13.dylib"
-    fi
-    rsync -a "$SLICE" "$LIBDIR/python/Python.framework"
+  if [[ -n "$HDR" ]]; then
+    echo "note: Python.h from $HDR"
+    rsync -a "$(dirname "$HDR")/" "$LIBDIR/python/include/python3.13/"
   fi
-  STDLIB="$(find "$PY_SUPPORT" -type d -name 'python3.13' | head -n 1 || true)"
-  if [[ -n "$STDLIB" && -f "$STDLIB/abc.py" ]]; then
-    rsync -a "$STDLIB/" "$LIBDIR/python/lib/python3.13/"
+  if [[ -n "$LIBPY" ]]; then
+    echo "note: libpython from $LIBPY"
+    cp -f "$LIBPY" "$LIBDIR/python/lib/$(basename "$LIBPY")"
+  fi
+  if [[ -n "$FWBIN" && ! -e "$LIBDIR/python/lib/libpython3.13.dylib" && ! -e "$LIBDIR/python/lib/libpython3.13.a" ]]; then
+    cp -f "$FWBIN" "$LIBDIR/python/lib/libpython3.13.dylib"
+  fi
+  if [[ -n "$STDLIB_PY" ]]; then
+    echo "note: stdlib from $(dirname "$STDLIB_PY")"
+    rsync -a "$(dirname "$STDLIB_PY")/" "$LIBDIR/python/lib/python3.13/"
+  fi
+  XC="$(find "$PY_SUPPORT" -name 'Python.xcframework' | head -n 1 || true)"
+  if [[ -d "$XC" ]]; then
+    rsync -a "$XC" "$LIBDIR/python/"
   fi
   if [[ ! -f "$LIBDIR/python/include/python3.13/Python.h" ]]; then
-    echo "Python-Apple-support did not unpack headers. Install that release or place Python.h in $LIBDIR/python/include/python3.13" >&2
+    echo "error: Python-Apple-support extracted but Python.h was not found." >&2
+    echo "error: Extracted tree:" >&2
+    find "$PY_SUPPORT" -maxdepth 5 -print | head -n 80 >&2
+    exit 1
+  fi
+  if [[ ! -e "$LIBDIR/python/lib/libpython3.13.a" && ! -e "$LIBDIR/python/lib/libpython3.13.dylib" ]]; then
+    echo "error: Python.h is present but libpython3.13 is missing" >&2
     exit 1
   fi
   date -Iseconds >"$LIBDIR/python/.built"
