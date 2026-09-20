@@ -90,6 +90,7 @@ set(BLENLIB_SRC
   "${BLENDER}/source/blender/blenlib/intern/gsqueue.cc"
   "${BLENDER}/source/blender/blenlib/intern/threads.cc"
   "${BLENDER}/source/blender/blenlib/intern/time.cc"
+  "${BLENDER}/source/blender/blenlib/intern/ustring.cc"
 )
 add_library(host_blenlib STATIC ${BLENLIB_SRC})
 target_link_libraries(host_blenlib PUBLIC host_guardedalloc)
