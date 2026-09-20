@@ -17,6 +17,8 @@ SRC="$ROOT/android/host_tools"
 MACSDK="$(xcrun --sdk macosx --show-sdk-path)"
 
 mkdir -p "$BUILD"
+# Reconfigure so new host include/stub paths are picked up.
+rm -f "$BUILD/CMakeCache.txt"
 cmake -S "$SRC" -B "$BUILD" -G Ninja \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_BUILD_TYPE=Release \

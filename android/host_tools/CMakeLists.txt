@@ -55,6 +55,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/dna_includes_all.h" "${DNA_INCLUDE_TEXT}
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/dna_includes_as_strings.h" "${DNA_FILE_LIST}")
 
 include_directories(
+  "${CMAKE_CURRENT_LIST_DIR}/stubs"
   "${CMAKE_CURRENT_BINARY_DIR}"
   "${BLENDER}/intern/atomic"
   "${BLENDER}/intern/guardedalloc"
