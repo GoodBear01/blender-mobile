@@ -2,7 +2,10 @@
 # Copy Blender scripts/datafiles/python into the iOS app bundle resources.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -z "${ROOT:-}" ]; then
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+fi
+export ROOT
 DEST="$ROOT/ios/BlenderMobile/Runtime/blender/5.2"
 SRC_SCRIPTS="$ROOT/blender-5.2.0/scripts"
 SRC_DATA="$ROOT/blender-5.2.0/release/datafiles"

@@ -3,7 +3,15 @@
 # Must run on a Mac with Xcode, cmake, and ninja.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -z "${ROOT:-}" ]; then
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+fi
+export ROOT
+# shellcheck source=xcode_env.sh
+. "${IOS_SCRIPTS:-$ROOT/ios/scripts}/xcode_env.sh"
+if ! ensure_cmake_ninja; then
+  exit 1
+fi
 BLENDER="$ROOT/blender-5.2.0"
 PACKAGES="$ROOT/packages"
 LIBDIR="$BLENDER/lib/ios_arm64"
@@ -12,17 +20,12 @@ SRC="$WORK/src"
 BUILD="$WORK/build"
 TOOLCHAIN="$ROOT/ios/cmake/ios.toolchain.cmake"
 
-# shellcheck source=xcode_env.sh
-source "$ROOT/ios/scripts/xcode_env.sh"
-if ! ensure_cmake_ninja; then
-  exit 1
-fi
 if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
   echo "Xcode iOS SDK not found. Open Xcode and install the iOS platform." >&2
   exit 1
 fi
 
-"$ROOT/ios/scripts/download_packages.sh"
+"${IOS_SCRIPTS:-$ROOT/ios/scripts}/download_packages.sh"
 
 mkdir -p "$LIBDIR" "$SRC" "$BUILD"
 

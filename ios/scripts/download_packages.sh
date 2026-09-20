@@ -2,7 +2,10 @@
 # Fetch the lite iOS source archives into packages/ if they are missing.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -z "${ROOT:-}" ]; then
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+fi
+export ROOT
 PACKAGES="$ROOT/packages"
 mkdir -p "$PACKAGES"
 

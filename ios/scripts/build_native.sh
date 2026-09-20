@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -z "${ROOT:-}" ]; then
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+fi
+export ROOT
 # shellcheck source=xcode_env.sh
-source "$ROOT/ios/scripts/xcode_env.sh"
+. "${IOS_SCRIPTS:-$ROOT/ios/scripts}/xcode_env.sh"
 if ! ensure_cmake_ninja; then
   exit 1
 fi
 BUILD="${BUILD_IOS:-$ROOT/build_ios}"
 
 if [[ ! -f "$BUILD/CMakeCache.txt" ]]; then
-  "$ROOT/ios/scripts/configure_blender.sh"
+  "${IOS_SCRIPTS:-$ROOT/ios/scripts}/configure_blender.sh"
 fi
 
 cmake --build "$BUILD" --target blender --parallel

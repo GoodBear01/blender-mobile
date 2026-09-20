@@ -1,7 +1,20 @@
-# Shared by the Xcode libblender compile. Safe to source from any iOS script.
-# Clears iPhone SDK flags that Xcode injects (they break macOS host tools / cmake).
+# Shared by the Xcode libblender compile. Safe to source. bash 3.2 compatible.
 
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/opt/homebrew/opt/cmake/bin:/opt/homebrew/opt/ninja/bin:/usr/bin:/bin:${PATH:-}"
+if [ -z "${ROOT:-}" ]; then
+  if [ -n "${SRCROOT:-}" ]; then
+    ROOT="$(cd "${SRCROOT}/.." && pwd)"
+  else
+    ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+  fi
+fi
+export ROOT
+
+if [ -z "${IOS_SCRIPTS:-}" ]; then
+  IOS_SCRIPTS="$ROOT/ios/scripts"
+fi
+export IOS_SCRIPTS
+
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/opt/homebrew/opt/cmake/bin:/opt/homebrew/opt/ninja/bin:/Applications/CMake.app/Contents/bin:/opt/local/bin:/usr/bin:/bin:${PATH:-}"
 
 unset SDKROOT IPHONEOS_DEPLOYMENT_TARGET TVOS_DEPLOYMENT_TARGET
 unset WATCHOS_DEPLOYMENT_TARGET XROS_DEPLOYMENT_TARGET MACOSX_DEPLOYMENT_TARGET
@@ -19,11 +32,12 @@ ensure_cmake_ninja() {
     return 0
   fi
   if command -v brew >/dev/null 2>&1; then
-    echo "note: Installing cmake and ninja with Homebrew (needed by Xcode)"
-    brew install cmake ninja
+    echo "note: Installing cmake and ninja with Homebrew"
+    brew install cmake ninja </dev/null || true
   fi
   if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; then
-    echo "error: cmake and ninja are missing. In Terminal run: brew install cmake ninja" >&2
+    echo "error: cmake and ninja are missing." >&2
+    echo "error: In Terminal: brew install cmake ninja" >&2
     return 1
   fi
 }

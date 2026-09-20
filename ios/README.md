@@ -18,7 +18,7 @@ cd blender-mobile
 
 Xcode first runs **Compile libblender** (libraries + `libblender.dylib` + scripts), then signs the app and installs it. The first Run can take **hours**. Watch the Report navigator for that phase. Later Runs only rebuild what changed.
 
-If the build says **failed with nonzero exit code**, open the Report navigator → BlenderMobile → Compile libblender. The real error is in that log (often missing `cmake`/`ninja`, or a library download). Then Product → Run again.
+If Xcode says **PhaseScriptExecution failed**, open the Report navigator → BlenderMobile → **Compile libblender**. That log has the real error (often `brew install cmake ninja`). Then Product → Run again.
 
 Install cmake and ninja on the Mac first (`brew install cmake ninja`). Also: `brew install molten-vk` if the MoltenVK download fails.
 

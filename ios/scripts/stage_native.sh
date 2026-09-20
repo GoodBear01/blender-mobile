@@ -2,7 +2,10 @@
 # Copy libblender + SDL/MoltenVK/Python into ios/Vendor and write Native.xcconfig.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -z "${ROOT:-}" ]; then
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+fi
+export ROOT
 BUILD="${BUILD_IOS:-$ROOT/build_ios}"
 LIBDIR="$ROOT/blender-5.2.0/lib/ios_arm64"
 VENDOR="$ROOT/ios/Vendor"
