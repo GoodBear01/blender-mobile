@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Called by Xcode. Compiles the full editor. Never writes back into ios/scripts.
 set -e
-trap 'echo "error: failed at line $LINENO: $BASH_COMMAND" >&2' ERR
+trap 'echo "note: compile failed at line $LINENO running: $BASH_COMMAND" >&2' ERR
 
 if [ -n "${SRCROOT:-}" ]; then
   ROOT="$(cd "${SRCROOT}/.." && pwd)"

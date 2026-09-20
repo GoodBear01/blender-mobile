@@ -33,34 +33,54 @@ expand_package() {
   local pattern="$1" dest_name="$2"
   local dest="$SRC/$dest_name"
   if [[ -f "$dest/CMakeLists.txt" || -f "$dest/configure" || -f "$dest/include/vulkan/vulkan.h" ]]; then
-    echo "$dest"
+    printf '%s\n' "$dest"
     return
   fi
-  local archive
-  archive="$(ls -1 "$PACKAGES"/$pattern 2>/dev/null | head -n 1 || true)"
+  local archive="" cand
+  for cand in "$PACKAGES"/$pattern; do
+    if [[ -f "$cand" ]]; then
+      archive="$cand"
+      break
+    fi
+  done
   if [[ -z "$archive" ]]; then
-    echo "Missing package $pattern in $PACKAGES" >&2
+    echo "error: missing package $pattern in $PACKAGES" >&2
     exit 1
   fi
-  echo "Extracting $(basename "$archive") -> $dest"
+  echo "note: Extracting $(basename "$archive") -> $dest" >&2
   local tmp="$WORK/extract-$dest_name"
   rm -rf "$tmp"
   mkdir -p "$tmp"
   tar -xf "$archive" -C "$tmp"
-  local inner
-  inner="$(find "$tmp" -mindepth 1 -maxdepth 1 | head -n 1)"
+  local inner=""
+  for cand in "$tmp"/*; do
+    if [[ -e "$cand" ]]; then
+      inner="$cand"
+      break
+    fi
+  done
+  if [[ -z "$inner" ]]; then
+    echo "error: $archive extracted empty" >&2
+    exit 1
+  fi
   rm -rf "$dest"
   mv "$inner" "$dest"
   rm -rf "$tmp"
-  echo "$dest"
+  printf '%s\n' "$dest"
 }
 
 cmake_dep() {
   local name="$1" source="$2" prefix="$3"
   shift 3
+  source="${source##*$'\n'}"
+  source="${source%%$'\r'}"
   if [[ -f "$prefix/.built" ]]; then
-    echo "[skip] $name already built"
+    echo "note: [skip] $name already built"
     return
+  fi
+  if [[ ! -d "$source" && ! -f "$source/CMakeLists.txt" ]]; then
+    echo "error: $name source is not a directory: $source" >&2
+    exit 1
   fi
   local bdir="$BUILD/$name"
   mkdir -p "$bdir" "$prefix"
@@ -102,8 +122,10 @@ cmake_dep jpeg "$(expand_package 'libjpeg-turbo-*.tar.gz' libjpeg-turbo)" "$LIBD
 cmake_dep tiff "$(expand_package 'tiff-*.tar.gz' tiff)" "$LIBDIR/tiff" \
   -Dtiff-tools=OFF -Dtiff-tests=OFF -Dtiff-docs=OFF -DZLIB_ROOT="$LIBDIR/zlib" -DJPEG_ROOT="$LIBDIR/jpeg"
 
+set +o pipefail
 ZLIB_A="$(find "$LIBDIR/zlib" -name 'libz.a' | head -n 1)"
 BROTLI_A="$(find "$LIBDIR/brotli" -name 'libbrotlidec.a' | head -n 1)"
+set -o pipefail
 cmake_dep freetype "$(expand_package 'freetype-*.tar.gz' freetype)" "$LIBDIR/freetype" \
   -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BZIP2=ON -DFT_REQUIRE_ZLIB=ON \
   -DFT_REQUIRE_BROTLI=ON -DFT_DISABLE_PNG=ON \
@@ -224,7 +246,9 @@ if [[ ! -f "$LIBDIR/robin-map/.built" ]]; then
   rm -rf "$WORK/robin-map-src"
   mkdir -p "$WORK/robin-map-src"
   tar -xf "$ROBIN_ZIP" -C "$WORK/robin-map-src" 2>/dev/null || unzip -q "$ROBIN_ZIP" -d "$WORK/robin-map-src"
+  set +o pipefail
   ROBIN_INNER="$(find "$WORK/robin-map-src" -mindepth 1 -maxdepth 1 | head -n 1)"
+  set -o pipefail
   cmake_dep robin-map "$ROBIN_INNER" "$LIBDIR/robin-map"
 fi
 
