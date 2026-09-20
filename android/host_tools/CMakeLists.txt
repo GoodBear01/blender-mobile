@@ -22,6 +22,21 @@ if(NOT FMT_INCLUDE)
   set(FMT_INCLUDE "${BLENDER}/extern/fmtlib/include")
 endif()
 
+foreach(_lib_name openimageio imath openexr)
+  set(_lib_inc "")
+  foreach(_root
+      "${BLENDER}/lib/ios_arm64/${_lib_name}/include"
+      "${BLENDER}/lib/android_arm64/${_lib_name}/include")
+    if(EXISTS "${_root}")
+      set(_lib_inc "${_root}")
+      break()
+    endif()
+  endforeach()
+  if(_lib_inc)
+    list(APPEND HOST_DEP_INCLUDES "${_lib_inc}")
+  endif()
+endforeach()
+
 add_compile_definitions(
   FMT_HEADER_ONLY=1
   WITH_ASSERT_ABORT
@@ -48,9 +63,7 @@ include_directories(
   "${BLENDER}/source/blender/makesdna"
   "${BLENDER}/source/blender/makesdna/intern"
   "${FMT_INCLUDE}"
-  "${BLENDER}/lib/android_arm64/openimageio/include"
-  "${BLENDER}/lib/android_arm64/imath/include"
-  "${BLENDER}/lib/android_arm64/openexr/include"
+  ${HOST_DEP_INCLUDES}
 )
 
 # --- guardedalloc ---

@@ -378,7 +378,7 @@ cmake_dep openimageio "$(expand_package 'OpenImageIO-*.tar.gz' openimageio)" "$L
   -DJPEG_ROOT="$LIBDIR/jpeg" -DPNG_ROOT="$LIBDIR/png" -DTIFF_ROOT="$LIBDIR/tiff"
 
 echo "===== Python 3.13 for iOS ====="
-if [[ ! -f "$LIBDIR/python/.built" ]]; then
+if [[ ! -f "$LIBDIR/python/.built" || ! -f "$LIBDIR/python/lib/python3.13/encodings/__init__.py" ]]; then
   PY_SUPPORT="$WORK/python-apple-support"
   PY_TAR="$WORK/Python-iOS-support.tar.gz"
   if [[ ! -f "$PY_SUPPORT/.extracted" ]]; then
@@ -412,9 +412,17 @@ if [[ ! -f "$LIBDIR/python/.built" ]]; then
     LIBPY="$(find "$PY_SUPPORT" \( -name 'libpython3.13.a' -o -name 'libpython3.13.dylib' \) | head -n 1)"
   fi
   FWBIN="$(find "$PY_SUPPORT" -path '*ios-arm64*' -name 'Python' -type f | grep -v simulator | head -n 1)"
-  STDLIB_PY="$(find "$PY_SUPPORT" -name 'abc.py' | grep -v simulator | head -n 1)"
+  STDLIB_PY=""
+  for cand in \
+      "$PY_SUPPORT/Python.xcframework/lib/python3.13/abc.py" \
+      "$PY_SUPPORT/lib/python3.13/abc.py"; do
+    if [[ -f "$cand" ]]; then
+      STDLIB_PY="$cand"
+      break
+    fi
+  done
   if [[ -z "$STDLIB_PY" ]]; then
-    STDLIB_PY="$(find "$PY_SUPPORT" -name 'abc.py' | head -n 1)"
+    STDLIB_PY="$(find "$PY_SUPPORT" -path '*/lib/python3.13/abc.py' | grep -v '/test/' | grep -v simulator | head -n 1)"
   fi
   set -o pipefail
 
