@@ -18,6 +18,10 @@
 
 #include <fmt/format.h>
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 #include "CLG_log.h"
 
 #include "DNA_listBase.h"
@@ -1041,12 +1045,29 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm,
       is_dialog,
       static_cast<GHOST_IWindow *>((win->parent) ? win->parent->runtime->ghostwin : nullptr));
 
+  if (ghost_window == nullptr) {
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_ERROR,
+                        "BlenderAndroid",
+                        "createWindow failed backend=%d",
+                        int(gpu_backend));
+#endif
+  }
   if (ghost_window) {
     win->runtime->gpuctx = GPU_context_create(ghost_window, nullptr);
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO,
+                        "BlenderAndroid",
+                        "window GPU_context_create ctx=%p",
+                        win->runtime->gpuctx);
+#endif
     GPU_render_begin();
 
     /* Needed so we can detect the graphics card below. */
     GPU_init();
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "window GPU_init done");
+#endif
 
     /* Set window as drawable upon creation. Note this has already been
      * it has already been activated by GHOST_CreateWindow. */
@@ -3509,18 +3530,27 @@ GHOST_IContext *WM_system_gpu_context_create()
 
 void WM_system_gpu_context_dispose(GHOST_IContext *context)
 {
+  if (context == nullptr || g_system == nullptr) {
+    return;
+  }
   BLI_assert(GPU_framebuffer_active_get() == GPU_framebuffer_back_get());
   g_system->disposeContext(context);
 }
 
 void WM_system_gpu_context_activate(GHOST_IContext *context)
 {
+  if (context == nullptr) {
+    return;
+  }
   BLI_assert(GPU_framebuffer_active_get() == GPU_framebuffer_back_get());
   context->activateDrawingContext();
 }
 
 void WM_system_gpu_context_release(GHOST_IContext *context)
 {
+  if (context == nullptr) {
+    return;
+  }
   BLI_assert(GPU_framebuffer_active_get() == GPU_framebuffer_back_get());
   context->releaseDrawingContext();
 }

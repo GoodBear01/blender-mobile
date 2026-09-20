@@ -29,7 +29,11 @@ using namespace blender::gpu;
 
 #define SET_STATE(_prefix, _state, _value) \
   do { \
-    StateManager *stack = Context::get()->state_manager; \
+    Context *ctx_ = Context::get(); \
+    if (ctx_ == nullptr || ctx_->state_manager == nullptr) { \
+      break; \
+    } \
+    StateManager *stack = ctx_->state_manager; \
     auto &state_object = stack->_prefix##state; \
     state_object._state = (_value); \
   } while (0)

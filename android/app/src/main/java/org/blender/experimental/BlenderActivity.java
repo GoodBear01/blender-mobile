@@ -1,11 +1,13 @@
 package org.blender.experimental;
 
+import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
@@ -37,7 +39,15 @@ public class BlenderActivity extends SDLActivity {
 
     @Override
     protected String[] getLibraries() {
-        return new String[] {"SDL3", "blender"};
+        /* Load only SDL on the UI thread. libblender.so is ~1.4GB and
+         * System.loadLibrary() during onCreate blocks the activity resume
+         * handshake; Pixel then force-pauses us before a surface exists. */
+        return new String[] {"SDL3"};
+    }
+
+    @Override
+    protected String getMainSharedObject() {
+        return getApplicationInfo().nativeLibraryDir + "/libblender.so";
     }
 
     @Override
@@ -51,13 +61,19 @@ public class BlenderActivity extends SDLActivity {
     }
 
     @Override
+    protected void main() {
+        Log.i(TAG, "loading libblender.so on SDL thread");
+        System.loadLibrary("blender");
+        super.main();
+    }
+
+    @Override
     public void setOrientationBis(int w, int h, boolean resizable, String hint) {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        /* Keep the manifest lock. SDL hint changes restart the activity. */
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         File files = getFilesDir();
         File runtimeRoot = new File(files, "blender");
         try {
@@ -73,13 +89,16 @@ public class BlenderActivity extends SDLActivity {
             finish();
             return;
         }
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         super.onCreate(savedInstanceState);
+        wakeScreenForLaunch();
         applyImmersiveUi();
         storage = new AndroidStorage(this);
         storage.applyPaths();
         storage.ensurePublicFolders();
         storage.start();
         handleOpenIntent(getIntent());
+        Log.i(TAG, "onCreate finished (SDL only; blender.so deferred)");
     }
 
     @Override
@@ -93,6 +112,7 @@ public class BlenderActivity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        wakeScreenForLaunch();
         applyImmersiveUi();
         if (storage != null) {
             storage.onResume();
@@ -121,6 +141,28 @@ public class BlenderActivity extends SDLActivity {
         if (storage != null) {
             storage.applyPaths();
             storage.ensurePublicFolders();
+        }
+    }
+
+    private void wakeScreenForLaunch() {
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+        KeyguardManager keyguard = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        if (keyguard != null && keyguard.isKeyguardLocked()) {
+            keyguard.requestDismissKeyguard(this, null);
+        }
+        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+        if (power != null) {
+            PowerManager.WakeLock wake = power.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "blender:launch");
+            wake.acquire(10 * 60 * 1000L);
         }
     }
 

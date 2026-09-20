@@ -1519,6 +1519,9 @@ void blf_glyph_draw(FontBLF *font, GlyphCacheBLF *gc, GlyphBLF *g, const int x, 
 
     if (bitmap_len > gc->bitmap_len_alloc) {
       int w = font->tex_size_max;
+#ifdef BLENDER_MOBILE
+      w = std::min(std::max(w, 256), 2048);
+#endif
       int h = bitmap_len / w + 1;
 
       gc->bitmap_len_alloc = w * h;

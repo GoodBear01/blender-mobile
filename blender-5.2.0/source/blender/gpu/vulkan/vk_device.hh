@@ -247,6 +247,11 @@ class VKDevice : public NonCopyable {
     PFN_vkCmdBeginRendering vkCmdBeginRendering = nullptr;
     PFN_vkCmdEndRendering vkCmdEndRendering = nullptr;
 
+    /* Vulkan 1.2 / VK_KHR_timeline_semaphore. Android libvulkan.so does not
+     * export these core 1.2 names; they must be loaded by proc addr. */
+    PFN_vkGetSemaphoreCounterValue vkGetSemaphoreCounterValue = nullptr;
+    PFN_vkWaitSemaphores vkWaitSemaphores = nullptr;
+
     /* Extension: VK_EXT_debug_utils */
     PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabel = nullptr;
     PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabel = nullptr;
@@ -427,8 +432,11 @@ class VKDevice : public NonCopyable {
   TimelineValue submission_finished_timeline_get() const
   {
     BLI_assert(vk_timeline_semaphore_ != VK_NULL_HANDLE);
-    TimelineValue current_timeline;
-    VkResult result = vkGetSemaphoreCounterValue(
+    if (functions.vkGetSemaphoreCounterValue == nullptr) {
+      return 0;
+    }
+    TimelineValue current_timeline = 0;
+    VkResult result = functions.vkGetSemaphoreCounterValue(
         vk_device_, vk_timeline_semaphore_, &current_timeline);
     UNUSED_VARS(result);
     BLI_assert_msg(

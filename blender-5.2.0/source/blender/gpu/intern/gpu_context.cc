@@ -52,6 +52,10 @@
 #include <cstdio>
 #include <mutex>
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender {
 
 using namespace blender::gpu;
@@ -205,7 +209,9 @@ GPUContext *GPU_context_create(GHOST_IWindow *ghost_window, GHOST_IContext *ghos
 
   GPU_context_active_set(wrap(ctx));
 
+#ifndef BLENDER_MOBILE
   draw::DebugDraw::get().acquire();
+#endif
 
   return wrap(ctx);
 }
@@ -215,7 +221,9 @@ void GPU_context_discard(GPUContext *ctx_)
   Context *ctx = unwrap(ctx_);
   BLI_assert(active_ctx == ctx);
 
+#ifndef BLENDER_MOBILE
   draw::DebugDraw::get().release();
+#endif
 
   GPUBackend *backend = GPUBackend::get();
   /* Flush any remaining printf while making sure we are inside render boundaries. */
@@ -580,6 +588,13 @@ static void gpu_backend_create()
       BLI_assert(0);
       break;
   }
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO,
+                      "BlenderAndroid",
+                      "gpu_backend_create type=%d backend=%p",
+                      int(g_backend_type),
+                      g_backend);
+#endif
 }
 
 void gpu_backend_init_resources()

@@ -290,6 +290,7 @@ class GHOST_ContextVK : public GHOST_Context {
   VkExtent2D render_extent_min_;
   VkSurfaceFormatKHR surface_format_;
   bool use_hdr_swapchain_;
+  bool initialized_ = false;
 
   std::optional<uint32_t> acquired_swapchain_image_index_;
 

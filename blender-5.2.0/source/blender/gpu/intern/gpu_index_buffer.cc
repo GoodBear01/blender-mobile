@@ -26,6 +26,10 @@
 #include <algorithm> /* For `min/max`. */
 #include <cstring>
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender {
 
 /* -------------------------------------------------------------------- */
@@ -421,12 +425,28 @@ void IndexBuf::squeeze_indices_short(uint min_idx,
 
 IndexBuf *GPU_indexbuf_calloc()
 {
-  return GPUBackend::get()->indexbuf_alloc();
+  GPUBackend *backend = GPUBackend::get();
+  if (backend == nullptr) {
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "GPU_indexbuf_calloc: no backend");
+#endif
+    return nullptr;
+  }
+  IndexBuf *elem = backend->indexbuf_alloc();
+#ifdef __ANDROID__
+  if (elem == nullptr) {
+    __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "GPU_indexbuf_calloc: alloc returned null");
+  }
+#endif
+  return elem;
 }
 
 IndexBuf *GPU_indexbuf_build(GPUIndexBufBuilder *builder)
 {
   IndexBuf *elem = GPU_indexbuf_calloc();
+  if (elem == nullptr) {
+    return nullptr;
+  }
   GPU_indexbuf_build_in_place(builder, elem);
   return elem;
 }
@@ -440,6 +460,17 @@ IndexBuf *GPU_indexbuf_create_subrange(IndexBuf *elem_src, uint start, uint leng
 
 void GPU_indexbuf_build_in_place(GPUIndexBufBuilder *builder, IndexBuf *elem)
 {
+  if (elem == nullptr || builder == nullptr || builder->data == nullptr) {
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_ERROR,
+                        "BlenderAndroid",
+                        "indexbuf_build_in_place skipped elem=%p builder=%p data=%p",
+                        elem,
+                        builder,
+                        builder ? builder->data : nullptr);
+#endif
+    return;
+  }
   BLI_assert(builder->data != nullptr);
   /* Transfer data ownership to IndexBuf.
    * It will be uploaded upon first use. */

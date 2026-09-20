@@ -862,7 +862,16 @@ VkImageUsageFlags to_vk_image_usage(const eGPUTextureUsage usage,
 
   VkImageUsageFlags result = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
   if (usage & GPU_TEXTURE_USAGE_SHADER_READ) {
-    result |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    result |= VK_IMAGE_USAGE_SAMPLED_BIT;
+#ifdef __ANDROID__
+    /* Pixel/Mali/Adreno reject R8 and other sampled formats when STORAGE is set.
+     * Only request storage when the texture is written as an image. */
+    if (usage & GPU_TEXTURE_USAGE_SHADER_WRITE) {
+      result |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+#else
+    result |= VK_IMAGE_USAGE_STORAGE_BIT;
+#endif
   }
   if (usage & GPU_TEXTURE_USAGE_SHADER_WRITE) {
     result |= VK_IMAGE_USAGE_STORAGE_BIT;

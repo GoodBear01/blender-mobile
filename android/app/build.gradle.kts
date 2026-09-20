@@ -23,8 +23,8 @@ android {
         applicationId = "org.blender.experimental"
         minSdk = 29
         targetSdk = 35
-        versionCode = 50200
-        versionName = "5.2.0-android-experimental"
+        versionCode = 50201
+        versionName = "5.2.0-android-test"
 
         ndk {
             /* All modern phones (Pixel, Samsung, etc.) — 64-bit ARM only. */
@@ -52,6 +52,16 @@ android {
         }
     }
 
+    signingConfigs {
+        create("testRelease") {
+            val keystore = rootProject.file(".tools/android-test.keystore")
+            storeFile = keystore
+            storePassword = "blender-android-test"
+            keyAlias = "blender-android-test"
+            keyPassword = "blender-android-test"
+        }
+    }
+
     buildTypes {
         debug {
             isDebuggable = true
@@ -59,6 +69,9 @@ android {
         }
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("testRelease")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

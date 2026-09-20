@@ -11,6 +11,10 @@
 #include "GHOST_Types.hh"
 #include <vulkan/vulkan_core.h>
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 #ifdef _WIN32
 #  include <vulkan/vulkan_win32.h>
 #elif defined(__APPLE__) && !defined(BLENDER_IOS)
@@ -320,14 +324,32 @@ class GHOST_DeviceVK {
     vma_allocator_create_info.physicalDevice = vk_physical_device;
     vma_allocator_create_info.device = vk_device;
     vma_allocator_create_info.instance = vk_instance;
+    vma_allocator_create_info.flags = 0;
+#ifdef __ANDROID__
+    if (features_12.bufferDeviceAddress ||
+        extensions.is_enabled(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
+    {
+      vma_allocator_create_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    }
+#else
     vma_allocator_create_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+#endif
     if (extensions.is_enabled(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
       vma_allocator_create_info.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
     }
     if (extensions.is_enabled(VK_KHR_MAINTENANCE_4_EXTENSION_NAME)) {
       vma_allocator_create_info.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT;
     }
-    vmaCreateAllocator(&vma_allocator_create_info, &vma_allocator);
+    VkResult vma_result = vmaCreateAllocator(&vma_allocator_create_info, &vma_allocator);
+    if (vma_result != VK_SUCCESS &&
+        (vma_allocator_create_info.flags & VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT))
+    {
+      vma_allocator_create_info.flags &= ~VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+      vma_result = vmaCreateAllocator(&vma_allocator_create_info, &vma_allocator);
+    }
+    if (vma_result != VK_SUCCESS) {
+      vma_allocator = VK_NULL_HANDLE;
+    }
   }
 };
 
@@ -415,29 +437,31 @@ struct GHOST_InstanceVK {
       device_index++;
 
       if (!device_vk.extensions.is_supported(required_extensions)) {
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_WARN,
+                            "BlenderAndroid",
+                            "vk device [%s] missing required extensions",
+                            device_vk.properties.properties.deviceName);
+#endif
         continue;
       }
+#ifndef __ANDROID__
       if (!blender::gpu::GPU_vulkan_is_supported_driver(physical_device)) {
         continue;
       }
+#endif
 
 #ifdef __ANDROID__
-      if (!device_vk.features.features.vertexPipelineStoresAndAtomics ||
-          !device_vk.features.features.fragmentStoresAndAtomics ||
-          !device_vk.features.features.imageCubeArray ||
-          !device_vk.features.features.multiDrawIndirect)
-      {
-        continue;
-      }
-      {
-        const uint32_t api = device_vk.properties.properties.apiVersion;
-        const bool vulkan_13 = VK_API_VERSION_MAJOR(api) > 1 || VK_API_VERSION_MINOR(api) >= 3;
-        if (!vulkan_13 &&
-            !device_vk.extensions.is_supported(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME))
-        {
-          continue;
-        }
-      }
+      /* Phone HALs often omit desktop feature bits. Still pick the GPU. */
+      __android_log_print(ANDROID_LOG_INFO,
+                          "BlenderAndroid",
+                          "vk device [%s] storesVA=%d fragSA=%d cube=%d mdi=%d api=0x%x",
+                          device_vk.properties.properties.deviceName,
+                          int(device_vk.features.features.vertexPipelineStoresAndAtomics),
+                          int(device_vk.features.features.fragmentStoresAndAtomics),
+                          int(device_vk.features.features.imageCubeArray),
+                          int(device_vk.features.features.multiDrawIndirect),
+                          int(device_vk.properties.properties.apiVersion));
 #else
       if (
 #ifndef __APPLE__
@@ -511,8 +535,20 @@ struct GHOST_InstanceVK {
     }
 
     if (fallback_physical_device == VK_NULL_HANDLE) {
-      CLOG_ERROR(&LOG, "No suitable Vulkan Device found!");
-      return GHOST_kFailure;
+#ifdef __ANDROID__
+      if (device_count > 0) {
+        fallback_physical_device = physical_devices[0];
+        __android_log_print(ANDROID_LOG_WARN,
+                            "BlenderAndroid",
+                            "no scored Vulkan device; using first of %u",
+                            device_count);
+      }
+      else
+#endif
+      {
+        CLOG_ERROR(&LOG, "No suitable Vulkan Device found!");
+        return GHOST_kFailure;
+      }
     }
 
     if (preferred_device.is_override) {
@@ -925,6 +961,9 @@ GHOST_ContextVK::GHOST_ContextVK(const GHOST_ContextParams &context_params,
 
 GHOST_ContextVK::~GHOST_ContextVK()
 {
+  if (!initialized_) {
+    return;
+  }
   if (vulkan_instance.has_value()) {
     GHOST_InstanceVK &instance_vk = vulkan_instance.value();
     if (!instance_vk.device.has_value() || instance_vk.device->vk_device == VK_NULL_HANDLE) {
@@ -1945,9 +1984,23 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
       required_device_extensions.append(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+#ifdef __ANDROID__
+    {
+      uint32_t sdl_ext_count = 0;
+      const char *const *sdl_exts = SDL_Vulkan_GetInstanceExtensions(&sdl_ext_count);
+      if (sdl_exts != nullptr) {
+        for (uint32_t i = 0; i < sdl_ext_count; i++) {
+          instance_vk.extensions.enable(sdl_exts[i], true);
+        }
+      }
+    }
+#endif
     if (!instance_vk.create_instance(
             VK_MAKE_VERSION(context_major_version_, context_minor_version_, 0)))
     {
+#ifdef __ANDROID__
+      __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "vkCreateInstance failed");
+#endif
       vulkan_instance.reset();
       return GHOST_kFailure;
     }
@@ -2004,6 +2057,12 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
                 sdl_window_, instance_vk.vk_instance, nullptr, &surface_))
         {
           CLOG_ERROR(&LOG, "SDL_Vulkan_CreateSurface failed: %s", SDL_GetError());
+#ifdef __ANDROID__
+          __android_log_print(ANDROID_LOG_ERROR,
+                              "BlenderAndroid",
+                              "SDL_Vulkan_CreateSurface failed: %s",
+                              SDL_GetError());
+#endif
           return GHOST_kFailure;
         }
         break;
@@ -2105,6 +2164,9 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
 #endif
 
     if (!instance_vk.select_physical_device(preferred_device_, required_device_extensions)) {
+#ifdef __ANDROID__
+      __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "select_physical_device failed");
+#endif
       return GHOST_kFailure;
     }
 
@@ -2113,12 +2175,16 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
                                    required_device_extensions,
                                    optional_device_extensions))
     {
+#ifdef __ANDROID__
+      __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "create_device failed");
+#endif
       return GHOST_kFailure;
     }
   }
   GHOST_DeviceVK &device_vk = instance_vk.device.value();
 
   device_vk.users++;
+  initialized_ = true;
 
   render_extent_ = {0, 0};
   render_extent_min_ = {0, 0};

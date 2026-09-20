@@ -463,7 +463,7 @@ gpu::Batch *batch_roundbox_widget_get()
 
     GPU_vertbuf_data_alloc(*vbo, 12);
 
-    GPUIndexBufBuilder ibuf;
+    GPUIndexBufBuilder ibuf{};
     GPU_indexbuf_init(&ibuf, GPU_PRIM_TRIS, 6, 12);
     /* Widget */
     GPU_indexbuf_add_tri_verts(&ibuf, 0, 1, 2);
@@ -475,8 +475,13 @@ gpu::Batch *batch_roundbox_widget_get()
     GPU_indexbuf_add_tri_verts(&ibuf, 8, 9, 10);
     GPU_indexbuf_add_tri_verts(&ibuf, 10, 9, 11);
 
+    gpu::IndexBuf *ibo = GPU_indexbuf_build(&ibuf);
+    if (ibo == nullptr) {
+      GPU_VERTBUF_DISCARD_SAFE(vbo);
+      return nullptr;
+    }
     g_ui_batch_cache.roundbox_widget = GPU_batch_create_ex(
-        GPU_PRIM_TRIS, vbo, GPU_indexbuf_build(&ibuf), GPU_BATCH_OWNS_INDEX | GPU_BATCH_OWNS_VBO);
+        GPU_PRIM_TRIS, vbo, ibo, GPU_BATCH_OWNS_INDEX | GPU_BATCH_OWNS_VBO);
     gpu_batch_presets_register(g_ui_batch_cache.roundbox_widget);
   }
   return g_ui_batch_cache.roundbox_widget;
@@ -1086,6 +1091,10 @@ void widgetbase_draw_cache_flush()
   }
 
   gpu::Batch *batch = batch_roundbox_widget_get();
+  if (batch == nullptr) {
+    g_widget_base_batch.count = 0;
+    return;
+  }
   if (g_widget_base_batch.count == 1) {
     /* draw single */
     GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_WIDGET_BASE);
@@ -1147,6 +1156,9 @@ static void draw_widgetbase_batch(WidgetBase *wtb)
         UI_ALPHA_CHECKER_DARK / 255.0f, UI_ALPHA_CHECKER_LIGHT / 255.0f, 8.0f};
     /* draw single */
     gpu::Batch *batch = batch_roundbox_widget_get();
+    if (batch == nullptr) {
+      return;
+    }
     GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_WIDGET_BASE);
     GPU_batch_uniform_4fv_array(
         batch, "parameters", MAX_WIDGET_PARAMETERS, (float (*)[4]) & wtb->uniform_params);

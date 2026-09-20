@@ -27,6 +27,10 @@
 
 #include "BLI_math_matrix_types.hh"
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender {
 
 static CLG_LogRef LOG = {"gpu.vulkan"};
@@ -175,10 +179,34 @@ void VKDevice::init(GHOST_IContext *ghost_context)
 
 void VKDevice::init_functions()
 {
+  auto load_fn = [this](const char *core, const char *alias) -> PFN_vkVoidFunction {
+    PFN_vkVoidFunction fn = nullptr;
+    if (vk_device_ != VK_NULL_HANDLE) {
+      fn = vkGetDeviceProcAddr(vk_device_, core);
+      if (!fn && alias) {
+        fn = vkGetDeviceProcAddr(vk_device_, alias);
+      }
+    }
+    if (!fn && vk_instance_ != VK_NULL_HANDLE) {
+      fn = vkGetInstanceProcAddr(vk_instance_, core);
+      if (!fn && alias) {
+        fn = vkGetInstanceProcAddr(vk_instance_, alias);
+      }
+    }
+    return fn;
+  };
+
 #define LOAD_FUNCTION(name) (PFN_##name) vkGetInstanceProcAddr(vk_instance_, STRINGIFY(name))
-  /* VK_KHR_dynamic_rendering */
-  functions.vkCmdBeginRendering = LOAD_FUNCTION(vkCmdBeginRenderingKHR);
-  functions.vkCmdEndRendering = LOAD_FUNCTION(vkCmdEndRenderingKHR);
+#define LOAD_CORE_OR_ALIAS(core, alias) \
+  (decltype(functions.core))load_fn(STRINGIFY(core), STRINGIFY(alias))
+
+  /* VK_KHR_dynamic_rendering (core 1.3 name first; Android HALs drop the KHR alias). */
+  functions.vkCmdBeginRendering = LOAD_CORE_OR_ALIAS(vkCmdBeginRendering, vkCmdBeginRenderingKHR);
+  functions.vkCmdEndRendering = LOAD_CORE_OR_ALIAS(vkCmdEndRendering, vkCmdEndRenderingKHR);
+
+  functions.vkGetSemaphoreCounterValue = LOAD_CORE_OR_ALIAS(vkGetSemaphoreCounterValue,
+                                                           vkGetSemaphoreCounterValueKHR);
+  functions.vkWaitSemaphores = LOAD_CORE_OR_ALIAS(vkWaitSemaphores, vkWaitSemaphoresKHR);
 
   /* VK_EXT_debug_utils */
   functions.vkCmdBeginDebugUtilsLabel = LOAD_FUNCTION(vkCmdBeginDebugUtilsLabelEXT);
@@ -221,6 +249,17 @@ void VKDevice::init_functions()
 #endif
   }
 
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO,
+                      "BlenderAndroid",
+                      "vk fn beginRendering=%p endRendering=%p getSemaphore=%p waitSemaphores=%p",
+                      functions.vkCmdBeginRendering,
+                      functions.vkCmdEndRendering,
+                      functions.vkGetSemaphoreCounterValue,
+                      functions.vkWaitSemaphores);
+#endif
+
+#undef LOAD_CORE_OR_ALIAS
 #undef LOAD_FUNCTION
 }
 

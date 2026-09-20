@@ -45,7 +45,9 @@ void DebugDraw::reset()
     gpu_draw_buf_.current()->command.array().vertex_first = 0;
     gpu_draw_buf_.current()->command.array().instance_len = 1;
     gpu_draw_buf_.current()->command.array().instance_first = 0;
-    gpu_draw_buf_.current()->push_update();
+    if (static_cast<gpu::StorageBuf *>(*gpu_draw_buf_.current()) != nullptr) {
+      gpu_draw_buf_.current()->push_update();
+    }
 
     cpu_draw_buf_.swap();
     gpu_draw_buf_.swap();
@@ -57,6 +59,9 @@ void DebugDraw::reset()
 gpu::StorageBuf *DebugDraw::gpu_draw_buf_get()
 {
 #ifdef WITH_DRAW_DEBUG
+  if (gpu_draw_buf_.current() == nullptr) {
+    return nullptr;
+  }
   gpu_draw_buf_used = true;
   return *gpu_draw_buf_.current();
 #else

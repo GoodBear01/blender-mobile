@@ -330,6 +330,13 @@ static bool vk_instance_create_for_platform_checks(VkInstance *r_instance)
 
 bool VKBackend::is_supported()
 {
+#ifdef __ANDROID__
+  /* Pixel/Mali HALs fail the desktop feature probe (bare instance without
+   * Android WSI, optional BDA, timeline bits). Rejecting Vulkan here installs
+   * DummyBackend, which returns nullptr from every GPU alloc and crashes on
+   * first UI draw. GHOST already created a working Vulkan context. */
+  return true;
+#endif
   CLG_logref_init(&LOG);
 
   VkInstance vk_instance = VK_NULL_HANDLE;
@@ -996,6 +1003,11 @@ void VKBackend::capabilities_init(VKDevice &device)
   GCaps.storage_buffer_alignment = limits.minStorageBufferOffsetAlignment;
 
   GCaps.max_parallel_compilations = BLI_system_thread_count();
+#ifdef __ANDROID__
+  /* Extra Vulkan contexts on worker threads crash during mutex lock on Pixel. */
+  GCaps.use_main_context_workaround = true;
+  GCaps.max_parallel_compilations = 1;
+#endif
   GCaps.mem_stats_support = true;
 
   uint32_t vk_extension_count;

@@ -21,6 +21,10 @@
 #include "WM_api.hh"
 #include "wm_window.hh"
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender {
 
 /* -------------------------------------------------------------------- */
@@ -94,18 +98,50 @@ class ContextShared {
   {
     mutex_ = BLI_ticket_mutex_alloc();
 
+#ifdef BLENDER_MOBILE
+    /* Phone Vulkan cannot host extra offscreen instances. Reuse the window context. */
+    blender_gpu_context_ = GPU_context_active_get();
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO,
+                        "BlenderAndroid",
+                        "ContextShared borrow gpu_ctx=%p",
+                        blender_gpu_context_);
+#endif
+    if (blender_gpu_context_ != nullptr) {
+      system_gpu_context_ = nullptr;
+      return;
+    }
+#endif
+
     system_gpu_context_ = WM_system_gpu_context_create();
+    if (system_gpu_context_ == nullptr) {
+      return;
+    }
     WM_system_gpu_context_activate(system_gpu_context_);
     blender_gpu_context_ = GPU_context_create(nullptr, system_gpu_context_);
   }
 
   ~ContextShared()
   {
-    WM_system_gpu_context_activate(system_gpu_context_);
-    GPU_context_active_set(blender_gpu_context_);
-
-    GPU_context_discard(blender_gpu_context_);
-    WM_system_gpu_context_dispose(system_gpu_context_);
+#ifdef BLENDER_MOBILE
+    if (system_gpu_context_ == nullptr) {
+      if (mutex_ != nullptr) {
+        BLI_ticket_mutex_free(mutex_);
+        mutex_ = nullptr;
+      }
+      return;
+    }
+#endif
+    if (system_gpu_context_ != nullptr) {
+      WM_system_gpu_context_activate(system_gpu_context_);
+    }
+    if (blender_gpu_context_ != nullptr) {
+      GPU_context_active_set(blender_gpu_context_);
+      GPU_context_discard(blender_gpu_context_);
+    }
+    if (system_gpu_context_ != nullptr) {
+      WM_system_gpu_context_dispose(system_gpu_context_);
+    }
 
     BLI_ticket_mutex_free(mutex_);
   }
@@ -120,9 +156,13 @@ class ContextShared {
 
     GPU_render_begin();
 
-    WM_system_gpu_context_activate(system_gpu_context_);
-    GPU_context_active_set(blender_gpu_context_);
-    GPU_context_begin_frame(blender_gpu_context_);
+    if (system_gpu_context_ != nullptr) {
+      WM_system_gpu_context_activate(system_gpu_context_);
+    }
+    if (blender_gpu_context_ != nullptr) {
+      GPU_context_active_set(blender_gpu_context_);
+      GPU_context_begin_frame(blender_gpu_context_);
+    }
   }
 
   bool is_enabled()
@@ -133,13 +173,17 @@ class ContextShared {
   /* Restore window drawable after disabling if restore is true. */
   void disable(bool restore = false)
   {
-    GPU_context_end_frame(blender_gpu_context_);
+    if (blender_gpu_context_ != nullptr) {
+      GPU_context_end_frame(blender_gpu_context_);
+    }
 
     if (BLI_thread_is_main() && restore) {
       wm_window_reset_drawable();
     }
     else {
-      WM_system_gpu_context_release(system_gpu_context_);
+      if (system_gpu_context_ != nullptr) {
+        WM_system_gpu_context_release(system_gpu_context_);
+      }
       GPU_context_active_set(nullptr);
     }
     /* Render boundaries are opened and closed here as this may be
@@ -172,7 +216,11 @@ void DRW_gpu_context_create()
   DRW_mutexes_init();
 
   viewport_context = MEM_new<ContextShared>(__func__);
+#ifdef BLENDER_MOBILE
+  preview_context = nullptr;
+#else
   preview_context = MEM_new<ContextShared>(__func__);
+#endif
 
   viewport_context->enable();
 }

@@ -29,6 +29,10 @@
 
 #include "BKE_global.hh"
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender::gpu {
 
 static VkImageAspectFlags to_vk_image_aspect_single_bit(const VkImageAspectFlags format,
@@ -700,13 +704,16 @@ bool VKTexture::allocate()
   VkExtent3D vk_extent = vk_extent_3d(0);
   const uint32_t limit = (type_ == GPU_TEXTURE_3D) ? GPU_max_texture_3d_size() :
                                                      GPU_max_texture_size();
-  if (vk_extent.depth > limit || vk_extent.height > limit || vk_extent.depth > limit) {
+  if (vk_extent.width > limit || vk_extent.height > limit || vk_extent.depth > limit) {
     return false;
   }
 
   const eGPUTextureUsage texture_usage = usage_get();
 
   VKDevice &device = VKBackend::get().device;
+  if (device.mem_allocator_get() == VK_NULL_HANDLE) {
+    return false;
+  }
   VkImageCreateInfo image_info = {};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.flags = to_vk_image_create(type_, format_flag_, texture_usage);
@@ -767,6 +774,18 @@ bool VKTexture::allocate()
                           &allocation_,
                           &allocation_info_);
   if (result != VK_SUCCESS) {
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_ERROR,
+                        "BlenderAndroid",
+                        "vmaCreateImage failed result=%d format=%d %ux%ux%u usage=0x%x name=%s",
+                        int(result),
+                        int(image_info.format),
+                        vk_extent.width,
+                        vk_extent.height,
+                        vk_extent.depth,
+                        unsigned(image_info.usage),
+                        name_.c_str());
+#endif
     return false;
   }
   debug::object_label(vk_image_, name_.c_str());

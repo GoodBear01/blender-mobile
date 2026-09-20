@@ -21,6 +21,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -63,6 +64,8 @@
             android:launchMode="singleTask"
             android:preferMinimalPostProcessing="true"
             android:resizeableActivity="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

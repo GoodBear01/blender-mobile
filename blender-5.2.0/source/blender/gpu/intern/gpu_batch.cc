@@ -496,7 +496,13 @@ void GPU_batch_program_set_builtin_with_config(Batch *batch,
                                                GPUBuiltinShader shader_id,
                                                GPUShaderConfig sh_cfg)
 {
+  if (batch == nullptr) {
+    return;
+  }
   gpu::Shader *shader = GPU_shader_get_builtin_shader_with_config(shader_id, sh_cfg);
+  if (shader == nullptr) {
+    return;
+  }
   GPU_batch_set_shader(batch, shader);
 }
 

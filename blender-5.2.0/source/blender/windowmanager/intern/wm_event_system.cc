@@ -6053,10 +6053,15 @@ static uint8_t android_buttons = 0;
 static bool android_nav_armed = false;
 static bool android_ui_hold = false;
 static bool android_ui_scrolling = false;
+static bool android_deferred_lmb = false;
+static bool android_orbiting = false;
+static bool android_long_press_sent = false;
+static uint64_t android_press_time_ms = 0;
 static int android_last_xy[2] = {0, 0};
 static int android_press_xy[2] = {0, 0};
-static constexpr int kAndroidOrbitArmPx = 16;
-static constexpr int kAndroidUiScrollArmPx = 40;
+static constexpr int kAndroidOrbitArmPx = 18;
+static constexpr int kAndroidUiScrollArmPx = 28;
+static constexpr uint64_t kAndroidLongPressMs = 480;
 
 static ARegion *wm_android_popup_region_at(wmWindow *win, const int xy[2])
 {
@@ -6123,9 +6128,10 @@ static void wm_android_orbit_rv3d(RegionView3D *rv3d, const int dx, const int dy
   }
   rv3d->view = RV3D_VIEW_USER;
 
+  /* Screen pixels already include DPI; dividing by UI scale made orbit feel stuck. */
   float sensitivity = U.view_rotate_sensitivity_turntable;
-  if (UI_SCALE_FAC > 0.0f) {
-    sensitivity /= UI_SCALE_FAC;
+  if (sensitivity <= 0.0f) {
+    sensitivity = DEG2RAD(0.4f);
   }
 
   float curr[4];
@@ -6294,6 +6300,28 @@ static void wm_android_inject_mousepan(wmWindow *win, const int xy[2], int dx, i
   wm_event_add_trackpad(win, &event, dx, dy);
 }
 
+static void wm_android_inject_button(wmWindow *win, wmEventType type, short val, const int xy[2])
+{
+  wmEvent event = *win->runtime->eventstate;
+  event.type = type;
+  event.val = val;
+  event.flag = eWM_EventFlag(0);
+  copy_v2_v2_int(event.xy, xy);
+  wm_event_add_intern(win, &event);
+}
+
+static bool wm_android_should_defer_lmb(wmWindow *win, const int xy[2])
+{
+  ARegion *hit = wm_android_view3d_region_at(win, xy);
+  if (hit == nullptr) {
+    return false;
+  }
+  if (wm_android_gizmo_owns_pointer(hit)) {
+    return false;
+  }
+  return true;
+}
+
 static void wm_android_on_button(wmWindow *win, const int type, const short val, const int xy[2])
 {
   uint8_t bit = 0;
@@ -6313,6 +6341,8 @@ static void wm_android_on_button(wmWindow *win, const int type, const short val,
     android_nav_armed = false;
     android_ui_hold = false;
     android_ui_scrolling = false;
+    android_orbiting = false;
+    android_long_press_sent = false;
     android_press_xy[0] = xy[0];
     android_press_xy[1] = xy[1];
     android_last_xy[0] = xy[0];
@@ -6342,7 +6372,7 @@ static void wm_android_on_button(wmWindow *win, const int type, const short val,
 
 static void wm_android_apply_pan(wmWindow *win, const int xy[2], int dx, int dy)
 {
-  const int max_step = 48;
+  const int max_step = 160;
   CLAMP(dx, -max_step, max_step);
   CLAMP(dy, -max_step, max_step);
   if (dx == 0 && dy == 0) {
@@ -6356,8 +6386,59 @@ static void wm_android_apply_pan(wmWindow *win, const int xy[2], int dx, int dy)
   ED_region_tag_redraw(region);
 }
 
-static void wm_android_navigate_from_move(wmWindow *win, const int xy[2])
+static bool wm_android_moved_past_slop(const int xy[2], const int slop)
 {
+  const int adx = xy[0] - android_press_xy[0];
+  const int ady = xy[1] - android_press_xy[1];
+  return (adx * adx + ady * ady) >= (slop * slop);
+}
+
+static void wm_android_navigate_from_move(wmWindow *win, const int xy[2], const uint64_t event_time_ms)
+{
+  if (android_deferred_lmb && !android_orbiting && !android_long_press_sent &&
+      !wm_android_moved_past_slop(xy, kAndroidOrbitArmPx))
+  {
+    if (event_time_ms >= android_press_time_ms &&
+        (event_time_ms - android_press_time_ms) >= kAndroidLongPressMs)
+    {
+      android_long_press_sent = true;
+      wm_android_inject_button(win, RIGHTMOUSE, KM_PRESS, android_press_xy);
+    }
+    android_last_xy[0] = xy[0];
+    android_last_xy[1] = xy[1];
+    return;
+  }
+
+  if (android_deferred_lmb) {
+    if (!android_orbiting) {
+      if (!wm_android_moved_past_slop(xy, kAndroidOrbitArmPx)) {
+        android_last_xy[0] = xy[0];
+        android_last_xy[1] = xy[1];
+        return;
+      }
+      android_orbiting = true;
+      android_last_xy[0] = xy[0];
+      android_last_xy[1] = xy[1];
+      return;
+    }
+    int dx = xy[0] - android_last_xy[0];
+    int dy = xy[1] - android_last_xy[1];
+    android_last_xy[0] = xy[0];
+    android_last_xy[1] = xy[1];
+    const int max_step = 160;
+    CLAMP(dx, -max_step, max_step);
+    CLAMP(dy, -max_step, max_step);
+    ARegion *region = wm_android_nav_region(win, xy);
+    if (region == nullptr) {
+      region = wm_android_nav_region(win, android_press_xy);
+    }
+    if (region != nullptr && (dx != 0 || dy != 0)) {
+      wm_android_orbit_rv3d(static_cast<RegionView3D *>(region->regiondata), dx, dy);
+      ED_region_tag_redraw(region);
+    }
+    return;
+  }
+
   if (android_ui_hold) {
     int dx = xy[0] - android_last_xy[0];
     int dy = xy[1] - android_last_xy[1];
@@ -6419,7 +6500,7 @@ static void wm_android_navigate_from_move(wmWindow *win, const int xy[2])
   android_last_xy[0] = xy[0];
   android_last_xy[1] = xy[1];
 
-  const int max_step = 48;
+  const int max_step = 160;
   CLAMP(dx, -max_step, max_step);
   CLAMP(dy, -max_step, max_step);
   if (dx == 0 && dy == 0) {
@@ -6521,7 +6602,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
       event.type = MOUSEMOVE;
       event.val = KM_NOTHING;
 #ifdef BLENDER_MOBILE
-      wm_android_navigate_from_move(win, event.xy);
+      wm_android_navigate_from_move(win, event.xy, event_time_ms);
 #endif
       {
         wmEvent *event_new = wm_event_add_mousemove(win, &event);
@@ -6639,13 +6720,72 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
       wm_tablet_data_from_ghost(&bd->tablet, &event.tablet);
 
       wm_eventemulation(&event, false);
+#ifdef BLENDER_MOBILE
+      bool skip_add = false;
+      if (event.type == LEFTMOUSE && event.val == KM_PRESS) {
+        android_press_time_ms = event_time_ms;
+        android_deferred_lmb = wm_android_should_defer_lmb(win, event_state->xy);
+        android_orbiting = false;
+        android_long_press_sent = false;
+        wm_android_on_button(win, event.type, event.val, event_state->xy);
+        if (android_deferred_lmb) {
+          skip_add = true;
+        }
+        else {
+          wm_event_state_update_and_click_set(&event,
+                                              event_time_ms,
+                                              event_state,
+                                              event_state_prev_press_time_ms_p,
+                                              GHOST_TEventType(type));
+        }
+      }
+      else if (event.type == LEFTMOUSE && event.val == KM_RELEASE) {
+        wm_android_on_button(win, event.type, event.val, event_state->xy);
+        if (android_deferred_lmb) {
+          if (!android_orbiting && !android_long_press_sent) {
+            wmEvent press = event;
+            press.val = KM_PRESS;
+            copy_v2_v2_int(press.xy, android_press_xy);
+            wm_event_state_update_and_click_set(&press,
+                                                event_time_ms,
+                                                event_state,
+                                                event_state_prev_press_time_ms_p,
+                                                GHOST_kEventButtonDown);
+            wm_event_add_intern(win, &press);
+          }
+          else if (android_long_press_sent) {
+            wm_android_inject_button(win, RIGHTMOUSE, KM_RELEASE, event_state->xy);
+            skip_add = true;
+          }
+          else {
+            skip_add = true;
+          }
+          android_deferred_lmb = false;
+          android_orbiting = false;
+          android_long_press_sent = false;
+        }
+        if (!skip_add) {
+          wm_event_state_update_and_click_set(&event,
+                                              event_time_ms,
+                                              event_state,
+                                              event_state_prev_press_time_ms_p,
+                                              GHOST_TEventType(type));
+        }
+      }
+      else {
+        wm_android_on_button(win, event.type, event.val, event_state->xy);
+        wm_event_state_update_and_click_set(&event,
+                                            event_time_ms,
+                                            event_state,
+                                            event_state_prev_press_time_ms_p,
+                                            GHOST_TEventType(type));
+      }
+#else
       wm_event_state_update_and_click_set(&event,
                                           event_time_ms,
                                           event_state,
                                           event_state_prev_press_time_ms_p,
                                           GHOST_TEventType(type));
-#ifdef BLENDER_MOBILE
-      wm_android_on_button(win, event.type, event.val, event_state->xy);
 #endif
 
       /* Add to other window if event is there (not to both!). */
@@ -6669,9 +6809,15 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
 
         wm_event_add_intern(win_other, &event_other);
       }
+#ifdef BLENDER_MOBILE
+      else if (!skip_add) {
+        wm_event_add_intern(win, &event);
+      }
+#else
       else {
         wm_event_add_intern(win, &event);
       }
+#endif
 
       break;
     }

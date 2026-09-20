@@ -270,9 +270,15 @@ static gpu::Texture *blf_batch_cache_texture_load()
   GlyphCacheBLF *gc = g_batch.glyph_cache;
   BLI_assert(gc);
   BLI_assert(gc->bitmap_len > 0);
+  if (gc == nullptr || gc->texture == nullptr) {
+    return nullptr;
+  }
 
   if (gc->bitmap_len > gc->bitmap_len_landed) {
     const int tex_width = GPU_texture_width(gc->texture);
+    if (tex_width <= 0) {
+      return nullptr;
+    }
 
     int bitmap_len_landed = gc->bitmap_len_landed;
     int remain = gc->bitmap_len - bitmap_len_landed;
@@ -319,6 +325,10 @@ void blf_batch_draw()
   }
 
   gpu::Texture *texture = blf_batch_cache_texture_load();
+  if (texture == nullptr) {
+    g_batch.glyph_len = 0;
+    return;
+  }
   GPU_storagebuf_usage_size_set(g_batch.glyph_buf, size_t(g_batch.glyph_len) * sizeof(GlyphQuad));
   GPU_storagebuf_update(g_batch.glyph_buf, g_batch.glyph_data);
   GPU_storagebuf_bind(g_batch.glyph_buf, 0);

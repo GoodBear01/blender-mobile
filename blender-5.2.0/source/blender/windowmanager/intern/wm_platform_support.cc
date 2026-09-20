@@ -102,6 +102,10 @@ static void wm_platform_support_create_link(char *link)
 
 bool WM_platform_support_perform_checks()
 {
+#ifdef BLENDER_MOBILE
+  /* Desktop GPU warning dialogs are not available on SDL phones. */
+  return true;
+#endif
   char title[WM_PLATFORM_SUPPORT_TEXT_SIZE];
   char message[WM_PLATFORM_SUPPORT_TEXT_SIZE];
   char link[WM_PLATFORM_SUPPORT_TEXT_SIZE];

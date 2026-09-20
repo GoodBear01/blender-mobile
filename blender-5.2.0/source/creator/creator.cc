@@ -85,6 +85,9 @@
 #  include <SDL3/SDL_hints.h>
 #  include <SDL3/SDL_main.h>
 #endif
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
 
 #include "FN_init.hh"
 
@@ -616,7 +619,13 @@ int main(int argc,
   BLI_args_parse(ba, ARG_PASS_SETTINGS_FORCE, nullptr, nullptr);
 #endif
 
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "calling WM_init");
+#endif
   WM_init(C, argc, argv);
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "WM_init returned");
+#endif
 
 #ifndef WITH_PYTHON
   fprintf(stderr,
@@ -673,8 +682,14 @@ int main(int argc,
     /* Not supported, although it could be made to work if needed. */
     BLI_assert(app_state.main_arg_deferred == nullptr);
 
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "before splash");
+#endif
     /* Shows the splash as needed. */
     WM_init_splash_on_startup(C);
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "entering WM_main");
+#endif
 
     WM_main(C);
   }
@@ -688,11 +703,82 @@ int main(int argc,
 } /* End of `int main(...)` function. */
 
 #if defined(__ANDROID__)
+#  include <android/log.h>
+#  include <csignal>
+#  include <cxxabi.h>
+#  include <dlfcn.h>
+#  include <exception>
+#  include <unistd.h>
+#  include <unwind.h>
+
+namespace {
+struct BlenderUnwindState {
+  int depth = 0;
+};
+
+_Unwind_Reason_Code blender_android_unwind_cb(struct _Unwind_Context *unw_ctx, void *arg)
+{
+  BlenderUnwindState *state = static_cast<BlenderUnwindState *>(arg);
+  if (state->depth > 48) {
+    return _URC_END_OF_STACK;
+  }
+  const uintptr_t pc = _Unwind_GetIP(unw_ctx);
+  Dl_info info{};
+  const bool have = (pc != 0) && dladdr(reinterpret_cast<void *>(pc), &info);
+  const uintptr_t base = (have && info.dli_fbase) ? reinterpret_cast<uintptr_t>(info.dli_fbase) : 0;
+  const uintptr_t rel = (base != 0 && pc >= base) ? (pc - base) : pc;
+  const char *sym = (have && info.dli_sname) ? info.dli_sname : "?";
+  int status = 0;
+  char *demangled = (have && info.dli_sname) ?
+                        abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status) :
+                        nullptr;
+  __android_log_print(ANDROID_LOG_ERROR,
+                      "BlenderAndroid",
+                      "  #%02d pc %p rel 0x%lx %s (%s)",
+                      state->depth,
+                      reinterpret_cast<void *>(pc),
+                      static_cast<unsigned long>(rel),
+                      (have && info.dli_fname) ? info.dli_fname : "?",
+                      (status == 0 && demangled) ? demangled : sym);
+  std::free(demangled);
+  state->depth++;
+  return _URC_NO_REASON;
+}
+
+void blender_android_dump_unwind(const char *why)
+{
+  __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "%s", why);
+  BlenderUnwindState state;
+  _Unwind_Backtrace(blender_android_unwind_cb, &state);
+}
+
+void blender_android_terminate()
+{
+  blender_android_dump_unwind("std::terminate (pure virtual / uncaught)");
+  std::abort();
+}
+
+void blender_android_sigabrt(int /*signum*/)
+{
+  static bool dumping = false;
+  if (dumping) {
+    _exit(1);
+  }
+  dumping = true;
+  blender_android_dump_unwind("SIGABRT");
+  _exit(1);
+}
+}  // namespace
+
 /* SDLActivity.java dlsym()s an unmangled C `SDL_main` from libblender.so. */
 extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, char *argv[])
 {
-  /* Before GHOST/SDL video init: we handle touch in GHOST_SystemSDL. */
-  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
+  std::set_terminate(blender_android_terminate);
+  std::signal(SIGABRT, blender_android_sigabrt);
+  /* Finger events are handled in GHOST. Do not also synthesize mouse
+   * clicks from the same touches — that double-fires UI and the viewport. */
+  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
   SDL_SetMainReady();
   return main(argc, const_cast<const char **>(argv));

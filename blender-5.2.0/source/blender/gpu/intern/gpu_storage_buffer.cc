@@ -83,11 +83,17 @@ void GPU_storagebuf_free(gpu::StorageBuf *ssbo)
 
 void GPU_storagebuf_usage_size_set(gpu::StorageBuf *ssbo, size_t usage_size)
 {
+  if (ssbo == nullptr) {
+    return;
+  }
   ssbo->usage_size_set(usage_size);
 }
 
 void GPU_storagebuf_update(gpu::StorageBuf *ssbo, const void *data)
 {
+  if (ssbo == nullptr) {
+    return;
+  }
   ssbo->update(data);
 }
 

@@ -56,7 +56,10 @@ final class AndroidStorage {
             return;
         }
         started = true;
-        requestAccess(false);
+        applyPaths();
+        ensurePublicFolders();
+        /* Do not prompt for permissions here. The system dialog pauses this
+         * Activity and destroys the SDL/Vulkan surface before Blender starts. */
         handler.postDelayed(poll, 500);
     }
 
@@ -73,7 +76,9 @@ final class AndroidStorage {
     void requestAccess(boolean forcePrompt) {
         applyPaths();
         ensurePublicFolders();
-        requestRuntimePermissions();
+        if (forcePrompt) {
+            requestRuntimePermissions();
+        }
         /* Do not leave the Activity unless the user asked. Opening Settings or
          * a file picker destroys the Vulkan surface and used to abort Blender. */
         if (forcePrompt && needsAllFilesAccess()) {

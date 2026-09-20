@@ -1656,10 +1656,11 @@ void wm_draw_update(bContext *C)
 
   BKE_image_free_unused_gpu_textures();
 
-#ifdef WITH_METAL_BACKEND
+#if defined(WITH_METAL_BACKEND) || defined(BLENDER_MOBILE)
   /* Reset drawable to ensure GPU context activation happens at least once per frame if only a
    * single context exists. This is required to ensure the default framebuffer is updated
-   * to be the latest backbuffer. */
+   * to be the latest backbuffer. Phone Vulkan also needs this: make_drawable is a no-op
+   * when the window is already drawable, leaving Context::get() null after GPU_init. */
   wm_window_clear_drawable(wm);
 #endif
 

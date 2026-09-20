@@ -29,6 +29,10 @@
 
 GHOST_SystemSDL::GHOST_SystemSDL() : GHOST_System()
 {
+#ifdef BLENDER_MOBILE
+  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+#endif
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     throw std::runtime_error(SDL_GetError());
   }
@@ -687,8 +691,9 @@ bool GHOST_SystemSDL::processAndroidTouchAt(const uint64_t event_ms,
     release_shift();
   };
 
+  active_touch_count_ = touchCountActiveFingers();
+
   if (phase == TOUCH_POINTER_DOWN) {
-    active_touch_count_ += 1;
     if (active_touch_count_ == 1 && !touch_pinch_active_) {
       touch_mode_ = TOUCH_MODE_PENDING_TAP;
       touch_start_x_ = x_root;
@@ -696,13 +701,12 @@ bool GHOST_SystemSDL::processAndroidTouchAt(const uint64_t event_ms,
       touch_last_x_ = x_root;
       touch_last_y_ = y_root;
       touch_pinch_dist_ = -1.0f;
-      /* Press immediately so the 3D navigate/transform gizmos receive the
-       * click on the icon, not 16px later after the finger has left it. */
+      /* Immediate LMB so gizmos and UI buttons see the press on the icon. */
       push_cursor();
       ensure_left_down();
     }
     else if (active_touch_count_ >= 2) {
-      /* Second finger: stop orbit. Pan via trackpad, not RMB (real right-click). */
+      /* Second finger: cancel the tap and switch to pan / pinch. */
       release_all_buttons();
       touch_mode_ = TOUCH_MODE_MULTI;
       touch_pinch_dist_ = touchFingerSpread();
@@ -729,19 +733,31 @@ bool GHOST_SystemSDL::processAndroidTouchAt(const uint64_t event_ms,
         }
         touch_pinch_dist_ = spread;
       }
-      if (fabsf(ds) >= 0.012f) {
-        const int magnify = int(ds * 90.0f);
+      SDL_Window *sdl_win = window->getSDLWindow();
+      float cx = 0.5f, cy = 0.5f;
+      touchGetCentroid(cx, cy);
+      int32_t cx_root = x_root;
+      int32_t cy_root = y_root;
+      if (sdl_win != nullptr) {
+        finger_to_root(sdl_win, cx, cy, cx_root, cy_root);
+      }
+      if (fabsf(ds) >= 0.008f && sdl_win != nullptr) {
+        int win_w = 1, win_h = 1;
+        SDL_GetWindowSize(sdl_win, &win_w, &win_h);
+        const int span = (win_w < win_h) ? win_w : win_h;
+        const int magnify = int(ds * float(span));
         if (magnify != 0) {
-          pushEvent(std::make_unique<GHOST_EventWheel>(
-              event_ms, window, GHOST_kEventWheelAxisVertical, magnify > 0 ? 1 : -1));
+          pushEvent(std::make_unique<GHOST_EventTrackpad>(event_ms,
+                                                          window,
+                                                          GHOST_kTrackpadEventMagnify,
+                                                          cx_root,
+                                                          cy_root,
+                                                          magnify,
+                                                          magnify,
+                                                          false));
         }
       }
-      else if (SDL_Window *sdl_win = window->getSDLWindow()) {
-        float cx = 0.5f, cy = 0.5f;
-        touchGetCentroid(cx, cy);
-        int32_t cx_root = x_root;
-        int32_t cy_root = y_root;
-        finger_to_root(sdl_win, cx, cy, cx_root, cy_root);
+      else if (sdl_win != nullptr) {
         const int32_t dx = cx_root - touch_last_x_;
         const int32_t dy = cy_root - touch_last_y_;
         if (dx != 0 || dy != 0) {
@@ -754,32 +770,26 @@ bool GHOST_SystemSDL::processAndroidTouchAt(const uint64_t event_ms,
                                                           dy,
                                                           false));
         }
-        touch_last_x_ = cx_root;
-        touch_last_y_ = cy_root;
       }
+      touch_last_x_ = cx_root;
+      touch_last_y_ = cy_root;
     }
     else if (active_touch_count_ == 1) {
-      const float sdx = float(x_root - touch_start_x_);
-      const float sdy = float(y_root - touch_start_y_);
-      const float dist_sq = sdx * sdx + sdy * sdy;
-
-      if (touch_mode_ == TOUCH_MODE_PENDING_TAP &&
-          dist_sq >= kTouchDragThresholdPx * kTouchDragThresholdPx)
-      {
-        touch_mode_ = TOUCH_MODE_ORBIT;
-        ensure_left_down();
+      if (touch_mode_ == TOUCH_MODE_PENDING_TAP) {
+        const float sdx = float(x_root - touch_start_x_);
+        const float sdy = float(y_root - touch_start_y_);
+        if ((sdx * sdx + sdy * sdy) >= kTouchDragThresholdPx * kTouchDragThresholdPx) {
+          touch_mode_ = TOUCH_MODE_ORBIT;
+        }
       }
       push_cursor();
+      touch_last_x_ = x_root;
+      touch_last_y_ = y_root;
     }
-    touch_last_x_ = x_root;
-    touch_last_y_ = y_root;
     return true;
   }
 
   if (phase == TOUCH_POINTER_UP) {
-    if (active_touch_count_ > 0) {
-      active_touch_count_ -= 1;
-    }
     if (active_touch_count_ == 0) {
       release_all_buttons();
       touchResetState();
@@ -914,17 +924,9 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
       int32_t y_root = 0;
       client_to_root(sdl_win, sdl_sub_evt.x, sdl_sub_evt.y, x_root, y_root);
 #ifdef BLENDER_MOBILE
-      /* Finger events already updated the view; ignore the synthetic mouse copy. */
-      if (touch_using_fingers_) {
+      /* Ignore mouse packets synthesized from fingers (we handle FINGER_*). */
+      if (sdl_sub_evt.which == SDL_TOUCH_MOUSEID || touch_using_fingers_) {
         break;
-      }
-      /* Bluetooth mice use a real device id, not SDL_TOUCH_MOUSEID. While a
-       * left-button remap session is active, keep feeding it motion so LMB-drag
-       * becomes middle-mouse orbit. */
-      if (active_touch_count_ > 0 || touch_middle_down_ || touch_mode_ != TOUCH_MODE_NONE) {
-        if (processAndroidTouchAt(event_ms, window, x_root, y_root, TOUCH_POINTER_MOVE)) {
-          break;
-        }
       }
 #endif
 
@@ -995,21 +997,8 @@ void GHOST_SystemSDL::processEvent(SDL_Event *sdl_event)
       }
 
 #ifdef BLENDER_MOBILE
-      if (touch_using_fingers_) {
+      if (sdl_sub_evt.which == SDL_TOUCH_MOUSEID || touch_using_fingers_) {
         break;
-      }
-      /* Phone + Bluetooth mouse: tap = left click (UI/select), drag = MMB orbit. */
-      if (sdl_sub_evt.button == SDL_BUTTON_LEFT) {
-        SDL_Window *sdl_win = window->getSDLWindow();
-        if (sdl_win != nullptr) {
-          int32_t x_root = 0;
-          int32_t y_root = 0;
-          client_to_root(sdl_win, sdl_sub_evt.x, sdl_sub_evt.y, x_root, y_root);
-          const TouchPointerPhase phase = sdl_sub_evt.down ? TOUCH_POINTER_DOWN : TOUCH_POINTER_UP;
-          if (processAndroidTouchAt(event_ms, window, x_root, y_root, phase)) {
-            break;
-          }
-        }
       }
 #endif
 

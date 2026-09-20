@@ -18,6 +18,10 @@
 
 #include "CLG_log.h"
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender {
 
 static CLG_LogRef LOG = {"gpu.vulkan"};
@@ -102,9 +106,14 @@ void VKDevice::wait_for_timeline(TimelineValue timeline)
   if (timeline == 0) {
     return;
   }
+  if (functions.vkWaitSemaphores == nullptr) {
+    wait_queue_idle();
+    return;
+  }
   VkSemaphoreWaitInfo vk_semaphore_wait_info = {
       VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, nullptr, 0, 1, &vk_timeline_semaphore_, &timeline};
-  VkResult wait_result = vkWaitSemaphores(vk_device_, &vk_semaphore_wait_info, UINT64_MAX);
+  VkResult wait_result = functions.vkWaitSemaphores(
+      vk_device_, &vk_semaphore_wait_info, UINT64_MAX);
   if (wait_result != VK_SUCCESS) {
     CLOG_ERROR(
         &LOG, "Vulkan: failed to wait for synchronization timeline [%s]", to_string(wait_result));
@@ -144,6 +153,13 @@ void VKDevice::submission_runner(TaskPool *__restrict pool, void *task_data)
       VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
       device->vk_queue_family_};
   vkCreateCommandPool(device->vk_device_, &vk_command_pool_create_info, nullptr, &vk_command_pool);
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO,
+                      "BlenderAndroid",
+                      "submission_runner ready pool=%p getSemaphore=%p",
+                      vk_command_pool,
+                      device->functions.vkGetSemaphoreCounterValue);
+#endif
 
   render_graph::VKScheduler scheduler;
   render_graph::VKCommandBuilder command_builder;

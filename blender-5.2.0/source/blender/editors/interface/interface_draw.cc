@@ -110,6 +110,9 @@ void draw_roundbox_4fv_ex(const rctf *rect,
   widget_params.alpha_discard = 1.0f;
 
   gpu::Batch *batch = batch_roundbox_widget_get();
+  if (batch == nullptr) {
+    return;
+  }
   GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_WIDGET_BASE);
   GPU_batch_uniform_4fv_array(batch, "parameters", 11, (const float (*)[4]) & widget_params);
   const GPUBlend old_blend = GPU_blend_get();

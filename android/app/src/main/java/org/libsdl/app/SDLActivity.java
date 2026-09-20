@@ -359,6 +359,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
               }
               if (allow_recreate) {
                   Log.v(TAG, "activity re-created");
+              } else if (mActivityCreated && !mSDLMainFinished && mLayout != null) {
+                  Log.v(TAG, "activity reused (SDL still running)");
+                  setContentView(mLayout);
+                  return;
               } else {
                   Log.v(TAG, "activity finished");
                   System.exit(0);

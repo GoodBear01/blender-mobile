@@ -3506,6 +3506,10 @@ void ED_region_draw_overflow_indication(const ScrArea *area,
                                         const ARegion *region,
                                         const rcti *mask)
 {
+#ifdef BLENDER_MOBILE
+  UNUSED_VARS(area, region, mask);
+  return;
+#else
   if (!(region->flag & RGN_FLAG_INDICATE_OVERFLOW)) {
     return;
   }
@@ -3604,6 +3608,7 @@ void ED_region_draw_overflow_indication(const ScrArea *area,
     grad_color[3] *= std::min((region->v2d.cur.ymin - region->v2d.tot.ymin) / transition, 1.0f);
     ui::draw_roundbox_4fv_ex(&rect, transparent, grad_color, 1.0f, nullptr, 0.0f, 0.0f);
   }
+#endif
 }
 
 void ED_region_panels_layout(const bContext *C, ARegion *region)

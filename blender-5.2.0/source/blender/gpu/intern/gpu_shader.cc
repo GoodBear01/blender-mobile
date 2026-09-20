@@ -806,7 +806,14 @@ Shader *ShaderCompiler::compile(const shader::ShaderCreateInfo &orig_info, bool 
 
   CLOG_DEBUG(&LOG, "Compiling Shader \"%s\"", orig_info.name_.c_str());
 
-  Shader *shader = GPUBackend::get()->shader_alloc(orig_info.name_.c_str());
+  GPUBackend *backend = GPUBackend::get();
+  if (backend == nullptr) {
+    return nullptr;
+  }
+  Shader *shader = backend->shader_alloc(orig_info.name_.c_str());
+  if (shader == nullptr) {
+    return nullptr;
+  }
 
   ShaderCreateInfo specialized_info = orig_info;
 

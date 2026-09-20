@@ -12,6 +12,10 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 #include "MEM_guardedalloc.h"
 
 #include "CLG_log.h"
@@ -147,6 +151,9 @@ static bool gpu_is_init = false;
 
 void WM_init_gpu()
 {
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "WM_init_gpu begin");
+#endif
   /* Must be called only once. */
   BLI_assert(gpu_is_init == false);
 
@@ -172,6 +179,9 @@ void WM_init_gpu()
   DRW_gpu_context_disable_ex(true);
 
   gpu_is_init = true;
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "WM_init_gpu done");
+#endif
 }
 
 static void sound_jack_sync_callback(Main *bmain, int mode, double time)
@@ -298,6 +308,12 @@ void WM_init(bContext *C, int argc, const char **argv)
       wm_window_ghostwindows_remove_invalid(C, wm);
     }
     if (wm == nullptr || wm->windows.is_empty()) {
+#ifdef __ANDROID__
+      __android_log_print(ANDROID_LOG_ERROR,
+                          "BlenderAndroid",
+                          "WM_init: no windows (wm=%p), exiting",
+                          wm);
+#endif
       if (params_file_read_post != nullptr) {
         MEM_delete_void(static_cast<void *>(params_file_read_post));
         params_file_read_post = nullptr;
@@ -313,14 +329,32 @@ void WM_init(bContext *C, int argc, const char **argv)
 #endif
     WM_init_gpu();
 
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "before platform checks");
+#endif
     if (!WM_platform_support_perform_checks()) {
       WM_exit(C, -1);
     }
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after platform checks");
+#endif
 
     GPU_context_begin_frame(GPU_context_active_get());
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after begin_frame");
+#endif
     ui::init();
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after ui::init");
+#endif
     GPU_context_end_frame(GPU_context_active_get());
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after end_frame");
+#endif
     GPU_render_end();
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after render_end");
+#endif
   }
 
   bke::subdiv::init();
@@ -328,8 +362,17 @@ void WM_init(bContext *C, int argc, const char **argv)
   ED_spacemacros_init();
 
 #ifdef WITH_PYTHON
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "before python start");
+#endif
   BPY_python_start(C, argc, argv);
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after python start");
+#endif
   BPY_python_reset(C);
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after python reset");
+#endif
 #else
   UNUSED_VARS(argc, argv);
 #endif
@@ -364,12 +407,21 @@ void WM_init(bContext *C, int argc, const char **argv)
 
   /* Load add-ons after key-maps have been initialized (but before the blend file has been read),
    * important to guarantee default key-maps have been declared & before post-read handlers run. */
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "before addons");
+#endif
   wm_init_scripts_extensions_once(C);
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "after addons");
+#endif
 
   WM_keyconfig_update_postpone_end();
   WM_keyconfig_update_on_startup(static_cast<wmWindowManager *>(G_MAIN->wm.first));
 
   wm_homefile_read_post(C, params_file_read_post);
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "BlenderAndroid", "WM_init done");
+#endif
 }
 
 static bool wm_init_splash_show_on_startup_check()

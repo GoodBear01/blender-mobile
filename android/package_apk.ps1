@@ -1,3 +1,7 @@
+param(
+    [switch]$Release
+)
+
 $ErrorActionPreference = "Stop"
 $AndroidDir = $PSScriptRoot
 $Root = Split-Path -Parent $AndroidDir
@@ -72,18 +76,35 @@ Write-Host "SDL_main export OK"
 Write-Host "== Packaging runtime assets =="
 & (Join-Path $AndroidDir "package_runtime.ps1")
 
-Write-Host "== Gradle assembleDebug =="
+$gradleTask = if ($Release) { "assembleRelease" } else { "assembleDebug" }
+Write-Host "== Gradle $gradleTask =="
 Push-Location $AndroidDir
 try {
-    & $Gradle assembleDebug --no-daemon
-    if ($LASTEXITCODE -ne 0) { throw "Gradle assembleDebug failed" }
+    & $Gradle $gradleTask --no-daemon
+    if ($LASTEXITCODE -ne 0) { throw "Gradle $gradleTask failed" }
 } finally {
     Pop-Location
 }
 
-$apk = Join-Path $AndroidDir "app\build\outputs\apk\debug\app-debug.apk"
+$apk = if ($Release) {
+    Join-Path $AndroidDir "app\build\outputs\apk\release\app-release.apk"
+} else {
+    Join-Path $AndroidDir "app\build\outputs\apk\debug\app-debug.apk"
+}
 if (-not (Test-Path $apk)) { throw "APK not produced: $apk" }
-Write-Host "APK ready: $apk"
+if ($Release) {
+    $distDir = Join-Path $AndroidDir "dist"
+    New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+    $distApk = Join-Path $distDir "Blender-5.2.0-android-test-arm64.apk"
+    Copy-Item -Force $apk $distApk
+    $downloads = Join-Path $env:USERPROFILE "Downloads\Blender-5.2.0-android-test-arm64.apk"
+    Copy-Item -Force $apk $downloads
+    Write-Host "Release APK ready: $distApk"
+    Write-Host "Copy: $downloads"
+    $apk = $distApk
+} else {
+    Write-Host "APK ready: $apk"
+}
 
 $adb = Join-Path $SdkRoot "platform-tools\adb.exe"
 if (Test-Path $adb) {
@@ -92,6 +113,9 @@ if (Test-Path $adb) {
     $devices = & $adb devices | Select-String "device$" | ForEach-Object { ($_ -split "\s+")[0] }
     if ($devices) {
         Write-Host "Installing onto $($devices -join ', ')"
+        if ($Release) {
+            & $adb uninstall org.blender.experimental
+        }
         & $adb install -r --no-incremental $apk
         if ($LASTEXITCODE -eq 0) {
             & $adb shell am force-stop org.blender.experimental

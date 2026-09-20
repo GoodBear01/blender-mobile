@@ -20,6 +20,10 @@
 #include "gpu_shader_private.hh"
 #include "gpu_texture_private.hh"
 
+#ifdef __ANDROID__
+#  include <android/log.h>
+#endif
+
 namespace blender {
 
 namespace gpu {
@@ -264,7 +268,14 @@ static inline gpu::Texture *gpu_texture_create(const char *name,
                                                eGPUDataFormat data_format = GPU_DATA_FLOAT)
 {
   BLI_assert(mip_len > 0);
-  Texture *tex = GPUBackend::get()->texture_alloc(name);
+  GPUBackend *backend = GPUBackend::get();
+  if (backend == nullptr) {
+    return nullptr;
+  }
+  Texture *tex = backend->texture_alloc(name);
+  if (tex == nullptr) {
+    return nullptr;
+  }
   tex->usage_set(usage);
 
   bool success = false;
@@ -289,6 +300,16 @@ static inline gpu::Texture *gpu_texture_create(const char *name,
   }
 
   if (!success) {
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_ERROR,
+                        "BlenderAndroid",
+                        "gpu_texture_create failed name=%s %dx%dx%d type=%d",
+                        name ? name : "?",
+                        w,
+                        h,
+                        d,
+                        int(type));
+#endif
     delete tex;
     return nullptr;
   }
@@ -640,15 +661,23 @@ void GPU_texture_update(gpu::Texture *tex, eGPUDataFormat data_format, const voi
 
 void GPU_texture_bind_ex(gpu::Texture *texture, GPUSamplerState state, int unit)
 {
+  Context *ctx = Context::get();
+  if (texture == nullptr || ctx == nullptr || ctx->state_manager == nullptr) {
+    return;
+  }
   Texture *tex = texture;
   state = (state.type == GPU_SAMPLER_STATE_TYPE_INTERNAL) ? tex->sampler_state : state;
-  Context::get()->state_manager->texture_bind(tex, state, unit);
+  ctx->state_manager->texture_bind(tex, state, unit);
 }
 
 void GPU_texture_bind(gpu::Texture *texture, int unit)
 {
+  Context *ctx = Context::get();
+  if (texture == nullptr || ctx == nullptr || ctx->state_manager == nullptr) {
+    return;
+  }
   Texture *tex = texture;
-  Context::get()->state_manager->texture_bind(tex, tex->sampler_state, unit);
+  ctx->state_manager->texture_bind(tex, tex->sampler_state, unit);
 }
 
 void GPU_texture_unbind(gpu::Texture *texture)
@@ -768,6 +797,9 @@ void GPU_texture_ref(gpu::Texture *texture)
 
 int GPU_texture_dimensions(const gpu::Texture *texture)
 {
+  if (texture == nullptr) {
+    return 0;
+  }
   GPUTextureType type = texture->type_get();
   if (type & GPU_TEXTURE_1D) {
     return 1;
@@ -787,12 +819,12 @@ int GPU_texture_dimensions(const gpu::Texture *texture)
 
 int GPU_texture_width(const gpu::Texture *texture)
 {
-  return texture->width_get();
+  return texture ? texture->width_get() : 0;
 }
 
 int GPU_texture_height(const gpu::Texture *texture)
 {
-  return texture->height_get();
+  return texture ? texture->height_get() : 0;
 }
 
 int GPU_texture_depth(const gpu::Texture *texture)
