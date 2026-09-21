@@ -558,6 +558,10 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
 
         status = PyConfig_SetBytesString(&config, &config.home, py_path_bundle->c_str());
         pystatus_exit_on_error(status);
+#  ifdef BLENDER_IOS
+        fprintf(stderr, "Blender iOS: Python home %s\n", py_path_bundle->c_str());
+        fflush(stderr);
+#  endif
 
 #  ifdef PYTHON_SSL_CERT_FILE
         /* Point to the portable SSL certificate to support HTTPS access, see: #102300. */

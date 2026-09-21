@@ -7,7 +7,7 @@
 extern int blender_ios_main(int argc, char **argv);
 #endif
 
-static NSString *const kRuntimeVersion = @"5.2.0-ios-full1";
+static NSString *const kRuntimeVersion = @"5.2.0-ios-full2";
 
 static void *g_blender_handle;
 static int (*g_blender_main)(int, char **);
@@ -108,6 +108,17 @@ static int (*g_blender_main)(int, char **);
   NSString *home = docs.path;
   NSString *resources = [runtime URLByAppendingPathComponent:@"blender/5.2"].path;
   NSString *pythonHome = [resources stringByAppendingPathComponent:@"python"];
+  NSString *encodings = [pythonHome stringByAppendingPathComponent:@"lib/python3.13/encodings/__init__.py"];
+  if (![fm fileExistsAtPath:encodings] && bundleRuntime != nil) {
+    NSString *bundled = [[[[bundleRuntime URLByAppendingPathComponent:@"blender"]
+        URLByAppendingPathComponent:@"5.2"]
+        URLByAppendingPathComponent:@"python"] path];
+    NSString *bundledEnc = [bundled stringByAppendingPathComponent:@"lib/python3.13/encodings/__init__.py"];
+    if ([fm fileExistsAtPath:bundledEnc]) {
+      pythonHome = bundled;
+      encodings = bundledEnc;
+    }
+  }
   [self setEnv:"BLENDER_IOS" value:@"1"];
   [self setEnv:"BLENDER_MOBILE" value:@"1"];
   [self setEnv:"BLENDER_USER_RESOURCES" value:home];
@@ -118,9 +129,13 @@ static int (*g_blender_main)(int, char **);
   [self setEnv:"BLENDER_ANDROID_BLENDS" value:[home stringByAppendingPathComponent:@"Blender"]];
   [self setEnv:"BLENDER_ANDROID_DOCUMENTS" value:home];
   [self setEnv:"BLENDER_ANDROID_DOWNLOADS" value:home];
-  if ([fm fileExistsAtPath:pythonHome]) {
+  if ([fm fileExistsAtPath:encodings]) {
+    [self setEnv:"BLENDER_SYSTEM_PYTHON" value:pythonHome];
     [self setEnv:"PYTHONHOME" value:pythonHome];
-    [self setEnv:"PYTHONPATH" value:[pythonHome stringByAppendingPathComponent:@"lib/python3.13"]];
+    NSLog(@"BlenderHost: Python stdlib %@", pythonHome);
+  }
+  else {
+    NSLog(@"BlenderHost: missing Python encodings at %@", encodings);
   }
   [self loadNativeLibraries];
 }

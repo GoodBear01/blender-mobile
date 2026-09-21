@@ -71,8 +71,9 @@ if [ ! -x "${HOST_TOOLS_DIR:-$ROOT/build_host_tools_macos}/makesrna" ]; then
   /bin/bash "$WORK/build_host_tools.sh"
 fi
 
-if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
-  echo "Blender iOS: packing scripts and datafiles"
+if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ] \
+    || [ ! -f "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/python/lib/python3.13/encodings/__init__.py" ]; then
+  echo "Blender iOS: packing scripts, datafiles, and the Python standard library"
   /bin/bash "$WORK/package_runtime.sh"
 fi
 
