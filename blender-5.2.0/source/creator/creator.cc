@@ -786,12 +786,19 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 #endif
 
 #if defined(BLENDER_IOS)
+#  include <dlfcn.h>
 static int blender_ios_sdl_main(int argc, char *argv[])
 {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
-  /* SDL dlopens this. A bare "MoltenVK" name does not see the embedded framework. */
-  SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/MoltenVK.framework/MoltenVK");
+  /* Prefer an embedded dynamic MoltenVK. The static copy lives in libblender,
+   * which exports vkGetInstanceProcAddr for SDL to dlsym. */
+  if (dlopen("@rpath/MoltenVK.framework/MoltenVK", RTLD_NOW | RTLD_GLOBAL) != nullptr) {
+    SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/MoltenVK.framework/MoltenVK");
+  }
+  else {
+    SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/libblender.dylib");
+  }
   SDL_SetMainReady();
   return main(argc, const_cast<const char **>(argv));
 }

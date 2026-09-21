@@ -316,7 +316,10 @@ if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64" OR CMAK
   if(DEFINED MOLTENVK_LIBRARY AND EXISTS "${MOLTENVK_LIBRARY}")
     target_link_libraries(blender PRIVATE "${MOLTENVK_LIBRARY}")
   endif()
-  target_link_options(blender PRIVATE "-Wl,-rpath,@executable_path/Frameworks")
+  target_link_options(blender PRIVATE
+    "-Wl,-rpath,@executable_path/Frameworks"
+    "-Wl,-exported_symbol,_vkGetInstanceProcAddr"
+  )
 elseif(WITH_PYTHON_MODULE)
   add_definitions(-DWITH_PYTHON_MODULE)
 

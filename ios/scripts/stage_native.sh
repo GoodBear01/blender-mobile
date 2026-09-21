@@ -83,7 +83,11 @@ fi
 if [[ -f "$VENDOR/libtbb.dylib" ]]; then
   LDFLAGS+=" -ltbb"
 fi
-if [[ -d "$VENDOR/MoltenVK.framework" ]]; then
+# A static MoltenVK.framework is already inside libblender. Linking it again
+# makes dyld abort_with_payload on launch. Only a real dynamic library is linked.
+MVK_BIN="$VENDOR/MoltenVK.framework/MoltenVK"
+if [[ -f "$MVK_BIN" ]] && otool -hv "$MVK_BIN" 2>/dev/null | grep -q MH_DYLIB; then
+  install_name_tool -id "@rpath/MoltenVK.framework/MoltenVK" "$MVK_BIN" || true
   LDFLAGS+=" -framework MoltenVK"
 fi
 if [[ -d "$VENDOR/Python.framework" ]]; then
