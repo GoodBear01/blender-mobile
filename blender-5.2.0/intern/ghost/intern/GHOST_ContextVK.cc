@@ -9,6 +9,7 @@
 #include "GHOST_ContextVK.hh"
 #include "GHOST_Mobile.hh"
 #include "GHOST_Types.hh"
+#include <cstdio>
 #include <vulkan/vulkan_core.h>
 
 #ifdef __ANDROID__
@@ -400,9 +401,16 @@ struct GHOST_InstanceVK {
                                              "Blender",
                                              VK_MAKE_VERSION(1, 0, 0),
                                              vulkan_api_version};
+    VkInstanceCreateFlags create_flags = 0;
+#ifdef BLENDER_IOS
+    /* MoltenVK hides every GPU unless portability enumeration is requested. */
+    if (extensions.is_enabled("VK_KHR_portability_enumeration")) {
+      create_flags = VkInstanceCreateFlags(0x00000001);
+    }
+#endif
     VkInstanceCreateInfo vk_instance_create_info = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
                                                     nullptr,
-                                                    0,
+                                                    create_flags,
                                                     &vk_application_info,
                                                     0,
                                                     nullptr,
@@ -451,17 +459,15 @@ struct GHOST_InstanceVK {
       }
 #endif
 
-#ifdef __ANDROID__
-      /* Phone HALs often omit desktop feature bits. Still pick the GPU. */
-      __android_log_print(ANDROID_LOG_INFO,
-                          "BlenderAndroid",
-                          "vk device [%s] storesVA=%d fragSA=%d cube=%d mdi=%d api=0x%x",
-                          device_vk.properties.properties.deviceName,
-                          int(device_vk.features.features.vertexPipelineStoresAndAtomics),
-                          int(device_vk.features.features.fragmentStoresAndAtomics),
-                          int(device_vk.features.features.imageCubeArray),
-                          int(device_vk.features.features.multiDrawIndirect),
-                          int(device_vk.properties.properties.apiVersion));
+#if defined(__ANDROID__) || defined(BLENDER_IOS)
+      /* Phone GPUs do not expose desktop feature bits such as logicOp. */
+#  ifdef BLENDER_IOS
+      fprintf(stderr,
+              "Blender iOS: vk device [%s] api=0x%x\n",
+              device_vk.properties.properties.deviceName,
+              int(device_vk.properties.properties.apiVersion));
+      fflush(stderr);
+#  endif
 #else
       if (
 #ifndef __APPLE__
@@ -1966,6 +1972,7 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
 #ifdef BLENDER_IOS
       instance_vk.extensions.enable("VK_MVK_ios_surface", true);
       instance_vk.extensions.enable("VK_EXT_metal_surface", true);
+      instance_vk.extensions.enable("VK_KHR_portability_enumeration", true);
 #endif
       /* X11 doesn't use the correct swapchain offset, flipping can squash the first frames.
        * Android WSI uses a minimal vkGetPhysicalDeviceSurfaceCapabilities2KHR stub; avoid the
@@ -2065,6 +2072,10 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
                 sdl_window_, instance_vk.vk_instance, nullptr, &surface_))
         {
           CLOG_ERROR(&LOG, "SDL_Vulkan_CreateSurface failed: %s", SDL_GetError());
+#ifdef BLENDER_IOS
+          fprintf(stderr, "Blender iOS: SDL_Vulkan_CreateSurface failed: %s\n", SDL_GetError());
+          fflush(stderr);
+#endif
 #ifdef __ANDROID__
           __android_log_print(ANDROID_LOG_ERROR,
                               "BlenderAndroid",
@@ -2172,6 +2183,10 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
 #endif
 
     if (!instance_vk.select_physical_device(preferred_device_, required_device_extensions)) {
+#ifdef BLENDER_IOS
+      fprintf(stderr, "Blender iOS: no usable Vulkan device\n");
+      fflush(stderr);
+#endif
 #ifdef __ANDROID__
       __android_log_print(ANDROID_LOG_ERROR, "BlenderAndroid", "select_physical_device failed");
 #endif

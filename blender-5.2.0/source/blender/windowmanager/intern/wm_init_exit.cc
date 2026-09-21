@@ -308,6 +308,10 @@ void WM_init(bContext *C, int argc, const char **argv)
       wm_window_ghostwindows_remove_invalid(C, wm);
     }
     if (wm == nullptr || wm->windows.is_empty()) {
+#ifdef BLENDER_IOS
+      fprintf(stderr, "Blender iOS: no window was created, exiting\n");
+      fflush(stderr);
+#endif
 #ifdef __ANDROID__
       __android_log_print(ANDROID_LOG_ERROR,
                           "BlenderAndroid",
