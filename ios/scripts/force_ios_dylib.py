@@ -37,11 +37,7 @@ text = re.sub(
     flags=re.S,
 )
 
-has_ios_dylib = re.search(
-    r"(?m)^if\(IOS OR CMAKE_SYSTEM_NAME STREQUAL \"iOS\" OR LIBDIR MATCHES \"ios_arm64\"\)\s*\n"
-    r"\s*add_library\(blender SHARED",
-    text,
-)
+has_ios_dylib = "add_library(blender SHARED" in text and "ios_arm64" in text
 if has_ios_dylib:
     if text != original:
         path.write_text(text, encoding="utf-8")

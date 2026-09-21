@@ -21,7 +21,7 @@ if ! cmake --build "$BUILD" --target blender --parallel; then
   cmake --build "$BUILD" --target blender -- -v -j1 || true
   exit 1
 fi
-LIB="$(find "$BUILD" \( -name 'libblender.dylib' -o -name 'libblender.so' \) -print -quit || true)"
+LIB="$(find "$BUILD" \( -iname 'libblender.dylib' -o -iname 'libBlender.dylib' -o -name 'libblender.so' \) -print -quit || true)"
 if [[ -z "$LIB" ]]; then
   echo "Blender iOS: libblender.dylib was not produced" >&2
   find "$BUILD" \( -name 'libblender*' -o -name 'Blender.app' -o -name 'blender' \) -print >&2 || true

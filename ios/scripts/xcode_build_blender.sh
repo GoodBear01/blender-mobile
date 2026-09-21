@@ -118,6 +118,12 @@ fi
 if grep -q 'Blender.app' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
   NEED_CONFIG=1
 fi
+if [ -d "$BUILD_IOS_DIR/bin/Blender.app" ]; then
+  NEED_CONFIG=1
+fi
+if [ -f "$BUILD_IOS_DIR/build.ninja" ] && ! find "$BUILD_IOS_DIR" -iname 'libblender.dylib' -print -quit | grep -q .; then
+  NEED_CONFIG=1
+fi
 if grep -q '/ios/clang' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null; then
   NEED_CONFIG=1
 fi

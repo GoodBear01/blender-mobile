@@ -296,6 +296,7 @@ add_c_and_cxx_flags_custom_test(blender)
 
 # message(STATUS "Configuring blender")
 if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64" OR CMAKE_BINARY_DIR MATCHES "build_ios")
+  message(STATUS "iOS blender target: libblender.dylib")
   add_library(blender SHARED ${SRC})
   set_target_properties(blender PROPERTIES
     OUTPUT_NAME blender
@@ -1725,7 +1726,7 @@ elseif(WIN32)
   if(PLATFORM_BUNDLED_LIBRARIES)
     windows_process_platform_bundled_libraries("${PLATFORM_BUNDLED_LIBRARIES}")
   endif()
-elseif(APPLE)
+elseif(APPLE AND NOT IOS)
   if(NOT WITH_PYTHON_MODULE)
     # Uppercase name for app bundle.
     set_target_properties(blender PROPERTIES OUTPUT_NAME Blender)
@@ -1772,7 +1773,7 @@ elseif(APPLE)
   # Give the bundle actual creation/modification date.
   #
   # Note that the directory might not yet exist, which happens when CMAKE is first run.
-  if(NOT EXISTS ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
+  if(NOT IOS AND NOT EXISTS ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
     file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
   endif()
   execute_process(
