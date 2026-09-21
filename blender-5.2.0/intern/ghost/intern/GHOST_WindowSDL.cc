@@ -36,6 +36,10 @@ GHOST_WindowSDL::GHOST_WindowSDL(GHOST_SystemSDL *system,
 
   /* creating the window _must_ come after setting attributes */
   SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#ifdef BLENDER_IOS
+  /* UIKit aborts if the SDL window is resizable or larger than the screen. */
+  window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#endif
 #ifdef WITH_VULKAN_BACKEND
   if (type == GHOST_kDrawingContextTypeVulkan) {
     window_flags |= SDL_WINDOW_VULKAN;
@@ -57,16 +61,31 @@ GHOST_WindowSDL::GHOST_WindowSDL(GHOST_SystemSDL *system,
   }
 
 #ifdef BLENDER_IOS
-  /* Size the window at creation. SDL_SetWindowSize / SDL_SetWindowPosition
-   * after create assert in UIKit. */
+  /* Window size is in points. A pixel-sized frame makes UIKit abort. */
   {
     const SDL_DisplayID display = SDL_GetPrimaryDisplay();
     SDL_Rect bounds = {0, 0, 0, 0};
-    if (display != 0 && SDL_GetDisplayBounds(display, &bounds) && bounds.w > 0 && bounds.h > 0) {
-      width = uint32_t(bounds.w);
-      height = uint32_t(bounds.h);
+    float content_scale = 1.0f;
+    if (display != 0) {
+      content_scale = SDL_GetDisplayContentScale(display);
+      if (!(content_scale > 1.0f)) {
+        content_scale = 1.0f;
+      }
+      if (SDL_GetDisplayBounds(display, &bounds) && bounds.w > 64 && bounds.h > 64) {
+        width = uint32_t(bounds.w);
+        height = uint32_t(bounds.h);
+      }
     }
-    SDL_Log("Blender iOS: creating window %u x %u", width, height);
+    const uint32_t short_side = width < height ? width : height;
+    if (content_scale > 1.1f && short_side > 1200) {
+      width = uint32_t(float(width) / content_scale);
+      height = uint32_t(float(height) / content_scale);
+    }
+    if (width < 64 || height < 64) {
+      width = 390;
+      height = 844;
+    }
+    SDL_Log("Blender iOS: creating window %u x %u scale %.2f", width, height, content_scale);
   }
 #endif
 

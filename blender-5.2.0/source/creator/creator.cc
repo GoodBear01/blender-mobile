@@ -790,6 +790,8 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 #  include <exception>
 static int blender_ios_sdl_main(int argc, char *argv[])
 {
+  fprintf(stderr, "Blender iOS: entered\n");
+  fflush(stderr);
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
   /* Leave SDL_VULKAN_LIBRARY unset. On Apple, a hint skips the in-process
