@@ -67,9 +67,9 @@ fi
 if [[ -f "$VENDOR/libtbb.dylib" ]]; then
   LDFLAGS+=" -ltbb"
 fi
-if [[ -d "$VENDOR/MoltenVK.xcframework" ]]; then
-  LDFLAGS+=" -framework MoltenVK"
-fi
+# MoltenVK is already linked into libblender.dylib. The staged file is an
+# xcframework, and Xcode's -framework MoltenVK only searches for a flat
+# MoltenVK.framework.
 if [[ -d "$VENDOR/Python.framework" ]]; then
   LDFLAGS+=" -framework Python"
 fi
