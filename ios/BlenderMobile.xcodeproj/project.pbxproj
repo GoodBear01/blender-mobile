@@ -431,10 +431,10 @@
 				OTHER_CPLUSPLUSFLAGS = "$(inherited) -DBLENDER_IOS_HAS_NATIVE";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-lblender",
-					"-lSDL3",
-					"-lpython3.13",
-					"-ltbb",
+					"$(PROJECT_DIR)/Vendor/libblender.dylib",
+					"$(PROJECT_DIR)/Vendor/libSDL3.dylib",
+					"$(PROJECT_DIR)/Vendor/libpython3.13.dylib",
+					"$(PROJECT_DIR)/Vendor/libtbb.dylib",
 					"-framework",
 					"Metal",
 					"-framework",
@@ -501,10 +501,10 @@
 				OTHER_CPLUSPLUSFLAGS = "$(inherited) -DBLENDER_IOS_HAS_NATIVE";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-lblender",
-					"-lSDL3",
-					"-lpython3.13",
-					"-ltbb",
+					"$(PROJECT_DIR)/Vendor/libblender.dylib",
+					"$(PROJECT_DIR)/Vendor/libSDL3.dylib",
+					"$(PROJECT_DIR)/Vendor/libpython3.13.dylib",
+					"$(PROJECT_DIR)/Vendor/libtbb.dylib",
 					"-framework",
 					"Metal",
 					"-framework",

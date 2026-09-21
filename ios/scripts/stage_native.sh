@@ -34,32 +34,42 @@ if [[ -z "$LIBBLENDER" || ! -f "$LIBBLENDER" ]]; then
   echo "libblender.dylib not found under $BUILD. Run ios/scripts/build_native.sh" >&2
   exit 1
 fi
-rsync -a "$LIBBLENDER" "$VENDOR/libblender.dylib"
+cp -f "$LIBBLENDER" "$VENDOR/libblender.dylib"
+chmod u+w "$VENDOR/libblender.dylib" || true
 install_name_tool -id "@rpath/libblender.dylib" "$VENDOR/libblender.dylib" || true
+
+is_ios_dylib() {
+  local platform
+  platform="$(otool -l "$1" 2>/dev/null | awk '/LC_BUILD_VERSION/{found=1} found && /platform/{print $2; exit}')"
+  [[ "$platform" == "2" ]]
+}
 
 stage_dylib() {
   local name="$1"
   shift
   local src="" cand
-  if [[ -f "$VENDOR/$name" ]]; then
-    return 0
-  fi
   for cand in "$@"; do
-    if [[ -f "$cand" ]]; then
+    if [[ -f "$cand" ]] && is_ios_dylib "$cand"; then
       src="$cand"
       break
     fi
   done
   if [[ -z "$src" ]]; then
-    src="$(find "$LIBDIR" -name "$name" -o -name "${name%.dylib}.*.dylib" 2>/dev/null | head -n 1 || true)"
+    while IFS= read -r cand; do
+      if [[ -f "$cand" ]] && is_ios_dylib "$cand"; then
+        src="$cand"
+        break
+      fi
+    done < <(find "$LIBDIR" \( -name "$name" -o -name "${name%.dylib}.*.dylib" \) -type f 2>/dev/null || true)
   fi
-  if [[ -n "$src" && -f "$src" ]]; then
+  if [[ -n "$src" ]]; then
     cp -f "$src" "$VENDOR/$name"
     chmod u+w "$VENDOR/$name" || true
     install_name_tool -id "@rpath/$name" "$VENDOR/$name" || true
-    echo "staged $name from $src"
+    echo "staged iOS $name from $src"
   else
-    echo "Blender iOS: $name was not found under $LIBDIR" >&2
+    echo "Blender iOS: no iOS $name under $LIBDIR" >&2
+    rm -f "$VENDOR/$name"
   fi
 }
 
@@ -97,8 +107,9 @@ rewrite_load_commands() {
     elif [[ -f "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]]; then
       src="$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
     fi
-    # Only ship Mach-O dylibs. A static archive copied as a .dylib makes dyld abort.
-    if [[ -n "$src" ]] && ! otool -hv "$src" 2>/dev/null | grep -q MH_DYLIB; then
+    # Only ship iOS dylibs. A macOS Homebrew library makes dyld abort in prepare.
+    if [[ -n "$src" ]] && { ! otool -hv "$src" 2>/dev/null | grep -q MH_DYLIB || ! is_ios_dylib "$src"; }; then
+      echo "Blender iOS: skipping non-iOS dependency $dep" >&2
       src=""
     fi
     if [[ -n "$src" && ! -f "$VENDOR/$base" ]]; then
