@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 src_path = Path(
     r"C:\Users\goodb\.cursor\projects\c-Users-goodb-Downloads-blender-with-libraries-5-2-0"
     r"\assets\c__Users_goodb_AppData_Roaming_Cursor_User_workspaceStorage_"
-    r"e05e637d2f2e2b611bdfafb5379b4661_images_image-6b16ee2d-83d7-44a7-812d-a56faa2607a5.png"
+    r"e05e637d2f2e2b611bdfafb5379b4661_images_image-3f5389f6-f8aa-4b0a-ad1d-0341ad523f43.png"
 )
 res = Path(r"c:\Users\goodb\Downloads\blender-with-libraries-5.2.0\android\app\src\main\res")
 brand = Path(r"c:\Users\goodb\Downloads\blender-with-libraries-5.2.0\android\branding")
@@ -70,4 +70,11 @@ fg_dir.mkdir(parents=True, exist_ok=True)
 fg = fit_on_canvas(432, scale=0.68, background=(0, 0, 0, 0))
 fg.save(fg_dir / "ic_launcher_foreground.png", "PNG")
 print("wrote adaptive foreground 432x432")
+
+ios_icon = Path(
+    r"c:\Users\goodb\Downloads\blender-with-libraries-5.2.0"
+    r"\ios\BlenderMobile\Assets.xcassets\AppIcon.appiconset\AppIcon.png"
+)
+fit_on_canvas(1024, scale=0.92, background=(0, 0, 0, 255)).convert("RGB").save(ios_icon, "PNG")
+print(f"wrote {ios_icon}")
 print("done")
