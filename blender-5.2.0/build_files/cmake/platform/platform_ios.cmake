@@ -134,15 +134,11 @@ if(WITH_VULKAN_BACKEND)
     set(VULKAN_INCLUDE_DIR "${LIBDIR}/vulkan/include" CACHE PATH "" FORCE)
     set(Vulkan_INCLUDE_DIR "${LIBDIR}/vulkan/include" CACHE PATH "" FORCE)
   endif()
+  # Static archives only. libvulkan.a in this tree is often a symlink to the
+  # MoltenVK dylib, and loading that dylib on the phone makes dyld abort.
   set(_mvk_paths
-    "${LIBDIR}/vulkan/lib/libvulkan.a"
-    "${LIBDIR}/moltenvk/lib/libMoltenVK.a"
-    "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
-    "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
-    "${LIBDIR}/moltenvk/static/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
     "${LIBDIR}/moltenvk/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
-    "${LIBDIR}/moltenvk/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
-    "${LIBDIR}/moltenvk/lib/libMoltenVK.dylib"
+    "${LIBDIR}/moltenvk/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
   )
   set(_mvk_lib "")
   foreach(_p ${_mvk_paths})
@@ -157,7 +153,7 @@ if(WITH_VULKAN_BACKEND)
     foreach(_p ${_mvk_found})
       get_filename_component(_n "${_p}" NAME)
       if(NOT _mvk_lib AND EXISTS "${_p}" AND NOT IS_DIRECTORY "${_p}")
-        if(_n STREQUAL "MoltenVK" OR _n STREQUAL "libMoltenVK.a")
+        if(_n STREQUAL "libMoltenVK.a")
           set(_mvk_lib "${_p}")
         endif()
       endif()
@@ -168,9 +164,10 @@ if(WITH_VULKAN_BACKEND)
     set(VULKAN_LIBRARY "${_mvk_lib}" CACHE FILEPATH "" FORCE)
     set(Vulkan_LIBRARY "${_mvk_lib}" CACHE FILEPATH "" FORCE)
     set(MOLTENVK_LIBRARY "${_mvk_lib}" CACHE FILEPATH "" FORCE)
-    message(STATUS "iOS Vulkan (MoltenVK): ${_mvk_lib}")
+    message(STATUS "iOS Vulkan (MoltenVK static): ${_mvk_lib}")
   else()
-    message(WARNING "MoltenVK ios-arm64 library not found under ${LIBDIR}/moltenvk")
+    unset(MOLTENVK_LIBRARY CACHE)
+    message(WARNING "No static libMoltenVK.a found. Not linking the MoltenVK dylib.")
   endif()
   unset(_mvk_paths)
   unset(_mvk_lib)

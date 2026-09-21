@@ -102,9 +102,12 @@ fi
 if [[ -f "$VENDOR/libtbb.dylib" ]]; then
   LDFLAGS+=" -ltbb"
 fi
-if [[ -f "$VENDOR/libMoltenVK.dylib" ]] && otool -hv "$VENDOR/libMoltenVK.dylib" 2>/dev/null | grep -q MH_DYLIB; then
-  LDFLAGS+=" -lMoltenVK"
-fi
+# MoltenVK stays inside libblender or is loaded via @rpath from Frameworks.
+# Do not add it to the app link line. A direct -framework/-lMoltenVK is what
+# dyld abort_with_payload is tripping on.
+
+echo "Blender iOS: libblender load commands:"
+otool -L "$VENDOR/libblender.dylib" || true
 
 cat >"$VENDOR/Native.xcconfig" <<EOF
 OTHER_CFLAGS = \$(inherited) -DBLENDER_IOS_HAS_NATIVE
