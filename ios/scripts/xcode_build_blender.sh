@@ -3,12 +3,19 @@
 set -e
 trap 'echo "Blender iOS: compile failed at line $LINENO running: $BASH_COMMAND" >&2' ERR
 
-if [ -n "${SRCROOT:-}" ]; then
+if [ -n "${SRCROOT:-}" ] && [ -d "${SRCROOT}/../blender-5.2.0" ]; then
+  IOS_ROOT="${SRCROOT}"
   ROOT="$(cd "${SRCROOT}/.." && pwd)"
+elif [ -n "${SRCROOT:-}" ] && [ -d "${SRCROOT}/blender-5.2.0" ]; then
+  ROOT="${SRCROOT}"
+  IOS_ROOT="${ROOT}/ios"
 elif [ -z "${ROOT:-}" ]; then
   ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+  IOS_ROOT="${ROOT}/ios"
+else
+  IOS_ROOT="${IOS_ROOT:-${ROOT}/ios}"
 fi
-export ROOT
+export ROOT IOS_ROOT
 
 echo "Blender iOS: ROOT=$ROOT"
 echo "Blender iOS: SRCROOT=${SRCROOT:-}"
@@ -140,8 +147,8 @@ echo "Blender iOS: compiling libblender.dylib"
 /bin/bash "$WORK/build_native.sh"
 /bin/bash "$WORK/stage_native.sh"
 
-if [ ! -f "$ROOT/ios/Vendor/libblender.dylib" ]; then
-  echo "error: libblender.dylib was not produced" >&2
+if [ ! -f "$IOS_ROOT/Vendor/libblender.dylib" ]; then
+  echo "error: libblender.dylib was not produced at $IOS_ROOT/Vendor/libblender.dylib" >&2
   exit 1
 fi
 
