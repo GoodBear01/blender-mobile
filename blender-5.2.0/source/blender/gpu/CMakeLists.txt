@@ -473,6 +473,10 @@ if(WITH_VULKAN_BACKEND)
   add_definitions(-DWITH_VULKAN_BACKEND)
 endif()
 
+if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  add_definitions(-DBLENDER_IOS -DBLENDER_MOBILE)
+endif()
+
 set(GLSL_SRC
   GPU_shader_shared.hh
 
