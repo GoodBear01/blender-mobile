@@ -85,6 +85,10 @@ if [ -f "$SHADER_CC" ] && grep -q 'options.SetMaxIdBound' "$SHADER_CC"; then
   /usr/bin/sed -i '' 's/options\.SetMaxIdBound/\/\/ options.SetMaxIdBound/' "$SHADER_CC"
 fi
 CREATOR_CMAKE="$ROOT/blender-5.2.0/source/creator/CMakeLists.txt"
+if grep -q 'else# BLENDER_IOS_FORCE_DYLIB' "$CREATOR_CMAKE" 2>/dev/null; then
+  echo "Blender iOS: restoring creator CMakeLists.txt after a bad dylib patch"
+  git -C "$ROOT" checkout -- blender-5.2.0/source/creator/CMakeLists.txt || true
+fi
 if [ -f "$WORK/force_ios_dylib.py" ]; then
   /usr/bin/python3 "$WORK/force_ios_dylib.py" "$CREATOR_CMAKE" || true
 fi

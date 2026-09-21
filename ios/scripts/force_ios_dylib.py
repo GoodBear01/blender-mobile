@@ -1,16 +1,53 @@
 #!/usr/bin/env python3
-"""Make source/creator/CMakeLists.txt emit libblender.dylib even on a stale tree."""
+"""Ensure creator CMakeLists.txt can emit libblender.dylib.
+
+An earlier version of this script replaced the substring
+if(WITH_PYTHON_MODULE) inside elseif(WITH_PYTHON_MODULE), which produced a
+bare `else` and a CMake parse error at line 320. Undo that, then insert a
+real iOS branch only when the file is still the stock Blender layout.
+"""
+from __future__ import annotations
+
 import pathlib
+import re
 import sys
 
 path = pathlib.Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-if "BLENDER_IOS_FORCE_DYLIB" in text:
+original = text
+
+# Undo the broken insertion: "elseif" lost its "if(" and became "else".
+text = re.sub(
+    r"else# BLENDER_IOS_FORCE_DYLIB\n"
+    r"if\(IOS OR CMAKE_SYSTEM_NAME STREQUAL \"iOS\" OR LIBDIR MATCHES \"ios_arm64\"\).*?"
+    r"elseif\(WITH_PYTHON_MODULE\)\n",
+    "elseif(WITH_PYTHON_MODULE)\n",
+    text,
+    count=1,
+    flags=re.S,
+)
+# Undo a clean insertion if we need to rewrite.
+text = re.sub(
+    r"\n# BLENDER_IOS_FORCE_DYLIB\n"
+    r"if\(IOS OR CMAKE_SYSTEM_NAME STREQUAL \"iOS\" OR LIBDIR MATCHES \"ios_arm64\"\).*?"
+    r"elseif\(WITH_PYTHON_MODULE\)\n",
+    "\nif(WITH_PYTHON_MODULE)\n",
+    text,
+    count=1,
+    flags=re.S,
+)
+
+has_ios_dylib = re.search(
+    r"(?m)^if\(IOS OR CMAKE_SYSTEM_NAME STREQUAL \"iOS\" OR LIBDIR MATCHES \"ios_arm64\"\)\s*\n"
+    r"\s*add_library\(blender SHARED",
+    text,
+)
+if has_ios_dylib:
+    if text != original:
+        path.write_text(text, encoding="utf-8")
+        print("Blender iOS: repaired creator CMakeLists.txt")
     sys.exit(0)
-needle = "if(WITH_PYTHON_MODULE)"
-if needle not in text:
-    sys.stderr.write("force_ios_dylib: if(WITH_PYTHON_MODULE) not found\n")
-    sys.exit(1)
+
 block = """# BLENDER_IOS_FORCE_DYLIB
 if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64")
   add_library(blender SHARED ${SRC})
@@ -29,6 +66,11 @@ if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64")
   target_link_options(blender PRIVATE "-Wl,-rpath,@executable_path/Frameworks")
 elseif(WITH_PYTHON_MODULE)
 """
-text = text.replace(needle, block, 1)
-path.write_text(text, encoding="utf-8")
+new, n = re.subn(r"(?m)^if\(WITH_PYTHON_MODULE\)", block, text, count=1)
+if n != 1:
+    sys.stderr.write("force_ios_dylib: no leading if(WITH_PYTHON_MODULE) to patch\n")
+    if text != original:
+        path.write_text(text, encoding="utf-8")
+    sys.exit(1)
+path.write_text(new, encoding="utf-8")
 print("Blender iOS: patched creator CMakeLists to emit libblender.dylib")
