@@ -98,6 +98,11 @@ rewrite_load_commands() {
       ""|/usr/lib/*|/System/*) continue ;;
     esac
     base="$(basename "$dep")"
+    case "$base" in
+      libSDL3*.dylib) base="libSDL3.dylib" ;;
+      libtbb*.dylib) base="libtbb.dylib" ;;
+      libpython3.13*.dylib) base="libpython3.13.dylib" ;;
+    esac
     # BeeWare's libpython install name is Python.framework/Python. The app
     # ships the same binary as libpython3.13.dylib, not a framework bundle.
     if [[ "$dep" == *Python.framework* ]]; then
@@ -160,6 +165,7 @@ fi
 # Do not add it to the app link line. A direct -framework/-lMoltenVK is what
 # dyld abort_with_payload is tripping on.
 
+export IOS_ROOT="$ROOT/ios" BUILD
 /bin/bash "$ROOT/ios/scripts/fix_python_rpaths.sh" "$VENDOR"
 
 echo "Blender iOS: libblender load commands:"
