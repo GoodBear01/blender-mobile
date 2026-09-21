@@ -263,6 +263,102 @@ audit_rpath_libs() {
   return "$missing"
 }
 
+list_staged_bins() {
+  local dir="$1" fw name f
+  shopt -s nullglob
+  for f in "$dir"/*.dylib; do
+    printf '%s\n' "$f"
+  done
+  for fw in "$dir"/*.framework; do
+    name="$(basename "$fw" .framework)"
+    if [[ -f "$fw/$name" ]]; then
+      printf '%s\n' "$fw/$name"
+    fi
+  done
+  shopt -u nullglob
+}
+
+rewrite_zlib_loads() {
+  local bin="$1" dep has=0
+  [[ -f "$bin" ]] || return 0
+  if otool -L "$bin" 2>/dev/null | grep -q '/usr/lib/libz.1.dylib'; then
+    has=1
+  fi
+  while IFS= read -r dep; do
+    dep="${dep%% (*}"
+    dep="$(printf '%s' "$dep" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    case "$dep" in
+      ""|/usr/lib/libz.1.dylib|/usr/lib/*|/System/*) continue ;;
+      *libz.1.dylib|*/libz.dylib|@rpath/libz*)
+        if [[ "$has" == 1 ]]; then
+          continue
+        fi
+        chmod u+w "$bin" || true
+        if install_name_tool -change "$dep" "/usr/lib/libz.1.dylib" "$bin" 2>/dev/null; then
+          echo "Blender iOS: $(basename "$bin") zlib -> /usr/lib/libz.1.dylib"
+          has=1
+        fi
+        ;;
+    esac
+  done < <(otool -L "$bin" 2>/dev/null | tail -n +2)
+}
+
+stage_rpath_closure() {
+  local dir="$1"
+  local pass bin dep rel src added
+  for pass in 1 2 3 4 5 6 7 8; do
+    added=0
+    while IFS= read -r bin; do
+      [[ -f "$bin" ]] || continue
+      rewrite_zlib_loads "$bin"
+      while IFS= read -r dep; do
+        dep="${dep%% (*}"
+        dep="$(printf '%s' "$dep" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        case "$dep" in
+          @rpath/*) ;;
+          *) continue ;;
+        esac
+        rel="${dep#@rpath/}"
+        [[ -e "$dir/$rel" ]] && continue
+        case "$rel" in
+          libblender.dylib|libz.dylib|libz.*.dylib|*MoltenVK*) continue ;;
+        esac
+        src="$(find_ios_dylib_source "$rel" || true)"
+        if [[ -n "$src" ]]; then
+          stage_named_dylib "$dir" "$rel" "$src"
+          echo "Blender iOS: closure staged $rel from $src"
+          added=1
+        fi
+      done < <(otool -L "$bin" 2>/dev/null | tail -n +2)
+    done < <(list_staged_bins "$dir")
+    [[ "$added" == 0 ]] && break
+  done
+}
+
+audit_all_rpaths() {
+  local dir="$1" bin dep rel missing=0
+  while IFS= read -r bin; do
+    [[ -f "$bin" ]] || continue
+    while IFS= read -r dep; do
+      dep="${dep%% (*}"
+      dep="$(printf '%s' "$dep" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      case "$dep" in
+        @rpath/*) ;;
+        *) continue ;;
+      esac
+      rel="${dep#@rpath/}"
+      case "$rel" in
+        libblender.dylib|*MoltenVK*|libz.dylib|libz.*.dylib) continue ;;
+      esac
+      if [[ ! -e "$dir/$rel" ]]; then
+        echo "Blender iOS: $(basename "$bin") needs missing @rpath/$rel" >&2
+        missing=1
+      fi
+    done < <(otool -L "$bin" 2>/dev/null | tail -n +2)
+  done < <(list_staged_bins "$dir")
+  return "$missing"
+}
+
 if [[ "$#" -lt 1 ]]; then
   echo "usage: $0 DIR [DIR...]" >&2
   exit 1
@@ -284,8 +380,16 @@ for dir in "$@"; do
   shopt -u nullglob
   resolve_rpath_deps "$dir"
   stage_python_framework "$dir" || true
+  stage_rpath_closure "$dir"
   ensure_framework_plists "$dir"
-  if ! audit_rpath_libs "$dir"; then
+  bins=()
+  while IFS= read -r bin; do
+    [[ -n "$bin" ]] && bins+=("$bin")
+  done < <(list_staged_bins "$dir")
+  if [[ ${#bins[@]} -gt 0 ]]; then
+    /usr/bin/python3 "$ROOT/ios/scripts/dedupe_load_dylibs.py" "${bins[@]}"
+  fi
+  if ! audit_rpath_libs "$dir" || ! audit_all_rpaths "$dir"; then
     echo "error: libblender.dylib has unsatisfied @rpath dependencies in $dir" >&2
     otool -L "$dir/libblender.dylib" >&2 || true
     exit 1
