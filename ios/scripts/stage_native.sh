@@ -109,13 +109,11 @@ fi
 echo "Blender iOS: libblender load commands:"
 otool -L "$VENDOR/libblender.dylib" || true
 
+# Do not put linker flags here. Xcode reads this file before the script runs,
+# so a stale -framework MoltenVK survives into the app and dyld aborts.
+rm -f "$VENDOR/Native.xcconfig"
 cat >"$VENDOR/Native.xcconfig" <<EOF
-OTHER_CFLAGS = \$(inherited) -DBLENDER_IOS_HAS_NATIVE
-OTHER_CPLUSPLUSFLAGS = \$(inherited) -DBLENDER_IOS_HAS_NATIVE
-LIBRARY_SEARCH_PATHS = \$(inherited) \$(PROJECT_DIR)/Vendor
-FRAMEWORK_SEARCH_PATHS = \$(inherited) \$(PROJECT_DIR)/Vendor
-OTHER_LDFLAGS = \$(inherited) $LDFLAGS
-LD_RUNPATH_SEARCH_PATHS = \$(inherited) @executable_path/Frameworks
+// Linker flags live in the Xcode target. This file must not add frameworks.
 EOF
 
 echo "Vendor staged in $VENDOR"
