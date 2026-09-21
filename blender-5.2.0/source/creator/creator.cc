@@ -792,8 +792,10 @@ static int blender_ios_sdl_main(int argc, char *argv[])
 {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
-  /* Static MoltenVK is inside libblender. Do not dlopen MoltenVK.framework. */
-  SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/libblender.dylib");
+  /* Leave SDL_VULKAN_LIBRARY unset. On Apple, a hint skips the in-process
+   * lookup and dlopens that path. Pointing it at libblender loads Blender
+   * twice and aborts. Static MoltenVK is already in this image, so SDL finds
+   * vkGetInstanceProcAddr with dlsym(RTLD_DEFAULT). */
   SDL_SetMainReady();
   try {
     return main(argc, const_cast<const char **>(argv));

@@ -56,22 +56,26 @@ GHOST_WindowSDL::GHOST_WindowSDL(GHOST_SystemSDL *system,
 #endif
   }
 
-  sdl_win_ = SDL_CreateWindow(title, width, height, window_flags);
-  if (sdl_win_) {
-    SDL_SetWindowPosition(sdl_win_, left, top);
-  }
 #ifdef BLENDER_IOS
-  if (sdl_win_ != nullptr) {
+  /* Size the window at creation. SDL_SetWindowSize / SDL_SetWindowPosition
+   * after create assert in UIKit. */
+  {
     const SDL_DisplayID display = SDL_GetPrimaryDisplay();
     SDL_Rect bounds = {0, 0, 0, 0};
-    if (SDL_GetDisplayBounds(display, &bounds) && bounds.w > 0 && bounds.h > 0) {
-      SDL_SetWindowSize(sdl_win_, bounds.w, bounds.h);
-      SDL_SetWindowPosition(sdl_win_, 0, 0);
+    if (display != 0 && SDL_GetDisplayBounds(display, &bounds) && bounds.w > 0 && bounds.h > 0) {
+      width = uint32_t(bounds.w);
+      height = uint32_t(bounds.h);
     }
-    SDL_ShowWindow(sdl_win_);
-    SDL_Log("Blender iOS: window %d x %d", bounds.w, bounds.h);
+    SDL_Log("Blender iOS: creating window %u x %u", width, height);
   }
 #endif
+
+  sdl_win_ = SDL_CreateWindow(title, width, height, window_flags);
+  if (sdl_win_) {
+#ifndef BLENDER_IOS
+    SDL_SetWindowPosition(sdl_win_, left, top);
+#endif
+  }
 
   /* now set up the rendering context. */
   if (setDrawingContextType(type) == GHOST_kSuccess) {
