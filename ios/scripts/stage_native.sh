@@ -98,14 +98,26 @@ rewrite_load_commands() {
       ""|/usr/lib/*|/System/*) continue ;;
     esac
     base="$(basename "$dep")"
+    # BeeWare's libpython install name is Python.framework/Python. The app
+    # ships the same binary as libpython3.13.dylib, not a framework bundle.
+    if [[ "$dep" == *Python.framework* ]]; then
+      base="libpython3.13.dylib"
+    fi
     if [[ "$base" == "MoltenVK" || "$dep" == *MoltenVK.framework* ]]; then
       base="libMoltenVK.dylib"
     fi
     src=""
     if [[ -f "$dep" ]]; then
       src="$dep"
-    elif [[ -f "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]]; then
+    elif [[ "$base" == "libMoltenVK.dylib" && -f "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]]; then
       src="$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+    elif [[ ! -f "$VENDOR/$base" ]]; then
+      while IFS= read -r cand; do
+        if [[ -f "$cand" ]] && is_ios_dylib "$cand"; then
+          src="$cand"
+          break
+        fi
+      done < <(find "$LIBDIR" -name "$base" -type f 2>/dev/null || true)
     fi
     # Only ship iOS dylibs. A macOS Homebrew library makes dyld abort in prepare.
     if [[ -n "$src" ]] && { ! otool -hv "$src" 2>/dev/null | grep -q MH_DYLIB || ! is_ios_dylib "$src"; }; then
@@ -147,6 +159,12 @@ fi
 # MoltenVK stays inside libblender or is loaded via @rpath from Frameworks.
 # Do not add it to the app link line. A direct -framework/-lMoltenVK is what
 # dyld abort_with_payload is tripping on.
+
+if otool -L "$VENDOR/libblender.dylib" | grep -q 'Python.framework'; then
+  echo "error: libblender.dylib still loads Python.framework/Python" >&2
+  otool -L "$VENDOR/libblender.dylib" >&2
+  exit 1
+fi
 
 echo "Blender iOS: libblender load commands:"
 otool -L "$VENDOR/libblender.dylib" || true
