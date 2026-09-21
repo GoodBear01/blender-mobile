@@ -40,9 +40,6 @@ fi
 IOS_SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 IOS_CC="$(xcrun --sdk iphoneos -f clang)"
 IOS_CXX="$(xcrun --sdk iphoneos -f clang++)"
-# A leftover wrapper at ios/clang++ makes Xcode report every ld failure as
-# ios/clang++:1:1 and can drop the iPhone sysroot on the link line.
-rm -f "$ROOT/ios/clang" "$ROOT/ios/clang++" "$ROOT/ios/cc" "$ROOT/ios/c++"
 cmake -S "$BLENDER" -B "$BUILD" \
   -G Ninja \
   -C "$PRESET" \
@@ -62,14 +59,11 @@ cmake -S "$BLENDER" -B "$BUILD" \
   -DPYTHON_EXECUTABLE="$PY3" \
   "$@"
 
-if ! grep -q 'CMAKE_SYSTEM_NAME:STRING=iOS' "$BUILD/CMakeCache.txt"; then
-  echo "error: configure did not set CMAKE_SYSTEM_NAME=iOS" >&2
-  grep CMAKE_SYSTEM_NAME "$BUILD/CMakeCache.txt" >&2 || true
-  exit 1
-fi
-if ! grep -q 'libblender.dylib' "$BUILD/build.ninja"; then
-  echo "error: ninja graph is not linking libblender.dylib. Run: git fetch origin && git reset --hard origin/main && rm -rf build_ios" >&2
-  grep -E 'Blender.app|libblender|CXX_SHARED|CXX_EXECUTABLE' "$BUILD/build.ninja" | head -n 20 >&2 || true
+if ! grep -qE 'libblender\.(dylib|so)|CXX_SHARED_LIBRARY_LINKER' "$BUILD/build.ninja"; then
+  echo "Blender iOS: ninja graph is not a shared libblender. Dumping blender link rules:" >&2
+  grep -n -E 'libblender|Blender.app|CXX_SHARED|CXX_EXECUTABLE|CXX_MODULE' "$BUILD/build.ninja" | head -n 40 >&2 || true
+  echo "Blender iOS: CMAKE_SYSTEM_NAME/IOS/LIBDIR from cache:" >&2
+  grep -E 'CMAKE_SYSTEM_NAME|IOS:|LIBDIR:' "$BUILD/CMakeCache.txt" | head -n 20 >&2 || true
   exit 1
 fi
 

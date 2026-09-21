@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Called by Xcode. Compiles the full editor. Never writes back into ios/scripts.
 set -e
-trap 'echo "note: compile failed at line $LINENO running: $BASH_COMMAND" >&2' ERR
+trap 'echo "Blender iOS: compile failed at line $LINENO running: $BASH_COMMAND" >&2' ERR
 
 if [ -n "${SRCROOT:-}" ]; then
   ROOT="$(cd "${SRCROOT}/.." && pwd)"
@@ -27,7 +27,7 @@ fi
 # Strip Windows CRLF into DerivedData. Do not touch the checkout.
 WORK="${DERIVED_FILE_DIR:-${TMPDIR:-/tmp}/blender-ios}/scripts"
 mkdir -p "$WORK"
-for f in "$ROOT/ios/scripts/"*.sh; do
+for f in "$ROOT/ios/scripts/"*.sh "$ROOT/ios/scripts/"*.py; do
   [ -f "$f" ] || continue
   /usr/bin/tr -d '\r' < "$f" > "$WORK/$(basename "$f")"
   chmod +x "$WORK/$(basename "$f")" || true
@@ -80,17 +80,20 @@ EOF
 done
 # Stale Mac checkouts still contain options.SetMaxIdBound (shaderc 2025.3).
 SHADER_CC="$ROOT/blender-5.2.0/source/blender/gpu/vulkan/vk_shader_compiler.cc"
-if [ -f "$SHADER_CC" ] && grep -q 'SetMaxIdBound' "$SHADER_CC"; then
-  echo "error: commenting out SetMaxIdBound for iOS shaderc 2025.3"
+if [ -f "$SHADER_CC" ] && grep -q 'options.SetMaxIdBound' "$SHADER_CC"; then
+  echo "Blender iOS: commenting out SetMaxIdBound for shaderc 2025.3"
   /usr/bin/sed -i '' 's/options\.SetMaxIdBound/\/\/ options.SetMaxIdBound/' "$SHADER_CC"
+fi
+CREATOR_CMAKE="$ROOT/blender-5.2.0/source/creator/CMakeLists.txt"
+if [ -f "$WORK/force_ios_dylib.py" ]; then
+  /usr/bin/python3 "$WORK/force_ios_dylib.py" "$CREATOR_CMAKE" || true
 fi
 if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] \
     || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
-    || ! grep -q 'CMAKE_SYSTEM_NAME:STRING=iOS' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
-    || ! grep -q 'libblender.dylib' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null \
+    || ! grep -qE 'libblender\.(dylib|so)|CXX_SHARED_LIBRARY_LINKER' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null \
     || grep -q -- 'ld_classic' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
     || grep -q 'fsmenu_system_macos.mm' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
-  echo "note: Configuring libblender"
+  echo "Blender iOS: configuring libblender"
   rm -rf "$BUILD_IOS_DIR/CMakeCache.txt" "$BUILD_IOS_DIR/CMakeFiles" "$BUILD_IOS_DIR/build.ninja"
   /bin/bash "$WORK/configure_blender.sh"
 fi

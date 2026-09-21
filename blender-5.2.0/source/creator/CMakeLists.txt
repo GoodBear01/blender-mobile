@@ -295,7 +295,28 @@ endif()
 add_c_and_cxx_flags_custom_test(blender)
 
 # message(STATUS "Configuring blender")
-if(WITH_PYTHON_MODULE)
+if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64")
+  add_library(blender SHARED ${SRC})
+  set_target_properties(blender PROPERTIES
+    OUTPUT_NAME blender
+    PREFIX "lib"
+    SUFFIX ".dylib"
+    FRAMEWORK OFF
+    BUNDLE OFF
+    MACOSX_BUNDLE OFF
+    MACOSX_RPATH ON
+    INSTALL_NAME_DIR "@rpath"
+  )
+  target_compile_definitions(blender PRIVATE BLENDER_IOS BLENDER_MOBILE)
+  if(EXISTS "${LIBDIR}/vulkan/include")
+    target_include_directories(blender PRIVATE ${LIBDIR}/vulkan/include)
+  endif()
+  target_link_libraries(blender PRIVATE SDL3::SDL3)
+  if(DEFINED MOLTENVK_LIBRARY AND EXISTS "${MOLTENVK_LIBRARY}")
+    target_link_libraries(blender PRIVATE "${MOLTENVK_LIBRARY}")
+  endif()
+  target_link_options(blender PRIVATE "-Wl,-rpath,@executable_path/Frameworks")
+elseif(WITH_PYTHON_MODULE)
   add_definitions(-DWITH_PYTHON_MODULE)
 
   # Creates `./bpy/__init__.so` which can be imported as a Python module.
@@ -349,26 +370,6 @@ elseif(ANDROID)
   target_link_libraries(blender PRIVATE android log EGL vulkan SDL3::SDL3)
   # Keep the C SDL_main that SDLActivity.java looks up with dlsym.
   target_link_options(blender PRIVATE "-Wl,-u,SDL_main")
-elseif(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64")
-  add_library(blender SHARED ${SRC})
-  set_target_properties(blender PROPERTIES
-    OUTPUT_NAME blender
-    PREFIX "lib"
-    SUFFIX ".dylib"
-    FRAMEWORK OFF
-    MACOSX_BUNDLE OFF
-    MACOSX_RPATH ON
-    INSTALL_NAME_DIR "@rpath"
-  )
-  target_compile_definitions(blender PRIVATE BLENDER_IOS BLENDER_MOBILE)
-  if(EXISTS "${LIBDIR}/vulkan/include")
-    target_include_directories(blender PRIVATE ${LIBDIR}/vulkan/include)
-  endif()
-  target_link_libraries(blender PRIVATE SDL3::SDL3)
-  if(DEFINED MOLTENVK_LIBRARY AND EXISTS "${MOLTENVK_LIBRARY}")
-    target_link_libraries(blender PRIVATE "${MOLTENVK_LIBRARY}")
-  endif()
-  target_link_options(blender PRIVATE "-Wl,-rpath,@executable_path/Frameworks")
 else()
   add_executable(blender ${EXETYPE} ${SRC})
   if(WITH_CPU_CHECK)
