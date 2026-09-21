@@ -112,31 +112,43 @@ rewrite_load_commands() {
       base="libMoltenVK.dylib"
     fi
     src=""
+    rel="${dep#@rpath/}"
+    if [[ "$dep" != @rpath/* ]]; then
+      rel="$base"
+    fi
     if [[ -f "$dep" ]]; then
       src="$dep"
     elif [[ "$base" == "libMoltenVK.dylib" && -f "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]]; then
       src="$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
-    elif [[ ! -f "$VENDOR/$base" ]]; then
+    elif [[ ! -e "$VENDOR/$rel" ]]; then
       while IFS= read -r cand; do
+        case "$cand" in
+          *simulator*|*ios-arm64_x86_64*|*macos*) continue ;;
+        esac
         if [[ -f "$cand" ]] && is_ios_dylib "$cand"; then
           src="$cand"
           break
         fi
-      done < <(find "$LIBDIR" -name "$base" -type f 2>/dev/null || true)
+      done < <(find "$LIBDIR" "$ROOT/ios/.deps" -path "*/$rel" -type f 2>/dev/null || true)
     fi
-    # Only ship iOS dylibs. A macOS Homebrew library makes dyld abort in prepare.
-    if [[ -n "$src" ]] && { ! otool -hv "$src" 2>/dev/null | grep -q MH_DYLIB || ! is_ios_dylib "$src"; }; then
+    # A macOS Homebrew library makes dyld abort in prepare. Frameworks are
+    # still MH_DYLIB; do not require the literal MH_DYLIB header string.
+    if [[ -n "$src" ]] && ! is_ios_dylib "$src"; then
       echo "Blender iOS: skipping non-iOS dependency $dep" >&2
       src=""
     fi
-    if [[ -n "$src" && ! -f "$VENDOR/$base" ]]; then
-      cp -f "$src" "$VENDOR/$base"
-      chmod u+w "$VENDOR/$base" || true
-      install_name_tool -id "@rpath/$base" "$VENDOR/$base" || true
-      echo "staged $base"
+    if [[ -n "$src" && ! -e "$VENDOR/$rel" ]]; then
+      mkdir -p "$VENDOR/$(dirname "$rel")"
+      cp -f "$src" "$VENDOR/$rel"
+      chmod u+w "$VENDOR/$rel" || true
+      install_name_tool -id "@rpath/$rel" "$VENDOR/$rel" || true
+      echo "staged $rel from $src"
     fi
-    if [[ -f "$VENDOR/$base" ]]; then
-      install_name_tool -change "$dep" "@rpath/$base" "$lib" || true
+    if [[ -e "$VENDOR/$rel" ]]; then
+      install_name_tool -change "$dep" "@rpath/$rel" "$lib" || true
+    elif [[ "$rel" == libz*.dylib || "$rel" == libz.dylib ]]; then
+      install_name_tool -change "$dep" "/usr/lib/libz.1.dylib" "$lib" || true
+      echo "Blender iOS: retargeted $dep to /usr/lib/libz.1.dylib"
     fi
   done < <(otool -L "$lib" | tail -n +2)
 }

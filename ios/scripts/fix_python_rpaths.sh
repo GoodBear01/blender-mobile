@@ -37,15 +37,19 @@ find_ios_dylib_source() {
     fi
   done
   while IFS= read -r cand; do
+    case "$cand" in
+      *simulator*|*ios-arm64_x86_64*|*macos*) continue ;;
+    esac
     [[ -f "$cand" ]] || continue
     echo "$cand"
     return 0
-  done < <(find "$LIBDIR" "$BUILD" -name "$name" -type f 2>/dev/null | head -n 20)
+  done < <(find "$LIBDIR" "$ROOT/ios/.deps" "$BUILD" -path "*/$name" -type f 2>/dev/null | head -n 40)
   return 1
 }
 
 stage_named_dylib() {
   local dir="$1" name="$2" src="$3"
+  mkdir -p "$dir/$(dirname "$name")"
   cp -f "$src" "$dir/$name"
   chmod u+w "$dir/$name"
   install_name_tool -id "@rpath/$name" "$dir/$name" || true
@@ -74,7 +78,7 @@ resolve_rpath_deps() {
       install_name_tool -change "$dep" "@rpath/libblender.dylib" "$lib" 2>/dev/null || true
       continue
     fi
-    if [[ ! -f "$dir/$canonical" ]]; then
+    if [[ ! -e "$dir/$canonical" ]]; then
       src="$(find_ios_dylib_source "$canonical" || true)"
       if [[ -z "$src" && "$canonical" == "libSDL3.dylib" ]]; then
         src="$(find_ios_dylib_source "libSDL3.0.dylib" || true)"
@@ -82,9 +86,12 @@ resolve_rpath_deps() {
       if [[ -n "$src" ]]; then
         stage_named_dylib "$dir" "$canonical" "$src"
         echo "Blender iOS: staged $canonical from $src"
+      elif [[ "$canonical" == libz*.dylib || "$canonical" == libz.dylib ]]; then
+        install_name_tool -change "$dep" "/usr/lib/libz.1.dylib" "$lib" || true
+        echo "Blender iOS: retargeted $dep to /usr/lib/libz.1.dylib"
       fi
     fi
-    if [[ -f "$dir/$canonical" && "$dep" != "@rpath/$canonical" ]]; then
+    if [[ -e "$dir/$canonical" && "$dep" != "@rpath/$canonical" ]]; then
       install_name_tool -change "$dep" "@rpath/$canonical" "$lib" 2>/dev/null || true
     fi
   done < <(otool -L "$lib" 2>/dev/null | tail -n +2)
@@ -199,7 +206,10 @@ audit_rpath_libs() {
         if [[ "$canonical" == "MOLTENVK_STATIC" || "$canonical" == "libblender.dylib" ]]; then
           continue
         fi
-        if [[ ! -f "$dir/$canonical" ]]; then
+        if [[ "$canonical" == libz*.dylib || "$canonical" == libz.dylib ]]; then
+          continue
+        fi
+        if [[ ! -e "$dir/$canonical" ]]; then
           echo "Blender iOS: libblender needs missing @rpath/$canonical (from $dep) in $dir" >&2
           missing=1
         fi
