@@ -150,6 +150,56 @@ PLIST
   echo "Blender iOS: staged Python.framework/Python in $dir"
 }
 
+ensure_framework_plists() {
+  local dir="$1"
+  local fw name exe
+  shopt -s nullglob
+  for fw in "$dir"/*.framework; do
+    [[ -d "$fw" ]] || continue
+    [[ -f "$fw/Info.plist" ]] && continue
+    name="$(basename "$fw" .framework)"
+    exe=""
+    if [[ -f "$fw/$name" ]]; then
+      exe="$name"
+    else
+      for cand in "$fw"/*; do
+        [[ -f "$cand" ]] || continue
+        exe="$(basename "$cand")"
+        break
+      done
+    fi
+    [[ -n "$exe" ]] || continue
+    cat >"$fw/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>${exe}</string>
+  <key>CFBundleIdentifier</key>
+  <string>org.blender.ios.${name}</string>
+  <key>CFBundleName</key>
+  <string>${name}</string>
+  <key>CFBundlePackageType</key>
+  <string>FMWK</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>MinimumOSVersion</key>
+  <string>16.0</string>
+  <key>CFBundleSupportedPlatforms</key>
+  <array>
+    <string>iPhoneOS</string>
+  </array>
+</dict>
+</plist>
+EOF
+    echo "Blender iOS: wrote Info.plist for ${name}.framework"
+  done
+  shopt -u nullglob
+}
+
 fix_dylib_python_refs() {
   local lib="$1"
   local dir="$2"
@@ -234,6 +284,7 @@ for dir in "$@"; do
   shopt -u nullglob
   resolve_rpath_deps "$dir"
   stage_python_framework "$dir" || true
+  ensure_framework_plists "$dir"
   if ! audit_rpath_libs "$dir"; then
     echo "error: libblender.dylib has unsatisfied @rpath dependencies in $dir" >&2
     otool -L "$dir/libblender.dylib" >&2 || true
