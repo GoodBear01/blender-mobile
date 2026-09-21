@@ -146,9 +146,6 @@ rewrite_load_commands() {
     fi
     if [[ -e "$VENDOR/$rel" ]]; then
       install_name_tool -change "$dep" "@rpath/$rel" "$lib" || true
-    elif [[ "$rel" == libz*.dylib || "$rel" == libz.dylib ]]; then
-      install_name_tool -change "$dep" "/usr/lib/libz.1.dylib" "$lib" || true
-      echo "Blender iOS: retargeted $dep to /usr/lib/libz.1.dylib"
     fi
   done < <(otool -L "$lib" | tail -n +2)
 }

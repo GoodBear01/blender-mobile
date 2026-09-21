@@ -86,9 +86,6 @@ resolve_rpath_deps() {
       if [[ -n "$src" ]]; then
         stage_named_dylib "$dir" "$canonical" "$src"
         echo "Blender iOS: staged $canonical from $src"
-      elif [[ "$canonical" == libz*.dylib || "$canonical" == libz.dylib ]]; then
-        install_name_tool -change "$dep" "/usr/lib/libz.1.dylib" "$lib" || true
-        echo "Blender iOS: retargeted $dep to /usr/lib/libz.1.dylib"
       fi
     fi
     if [[ -e "$dir/$canonical" && "$dep" != "@rpath/$canonical" ]]; then
@@ -206,9 +203,6 @@ audit_rpath_libs() {
         if [[ "$canonical" == "MOLTENVK_STATIC" || "$canonical" == "libblender.dylib" ]]; then
           continue
         fi
-        if [[ "$canonical" == libz*.dylib || "$canonical" == libz.dylib ]]; then
-          continue
-        fi
         if [[ ! -e "$dir/$canonical" ]]; then
           echo "Blender iOS: libblender needs missing @rpath/$canonical (from $dep) in $dir" >&2
           missing=1
@@ -226,6 +220,12 @@ fi
 
 for dir in "$@"; do
   [[ -d "$dir" ]] || continue
+  shopt -s nullglob
+  dylibs=("$dir"/*.dylib)
+  shopt -u nullglob
+  if [[ ${#dylibs[@]} -gt 0 ]]; then
+    /usr/bin/python3 "$ROOT/ios/scripts/dedupe_load_dylibs.py" "${dylibs[@]}"
+  fi
   ensure_libpython_in "$dir" || true
   shopt -s nullglob
   for lib in "$dir"/*.dylib; do
