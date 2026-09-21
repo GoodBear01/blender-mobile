@@ -789,8 +789,9 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 static int blender_ios_sdl_main(int argc, char *argv[])
 {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
-  SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
-  SDL_SetHint("SDL_VULKAN_LIBRARY", "MoltenVK");
+  SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
+  /* SDL dlopens this. A bare "MoltenVK" name does not see the embedded framework. */
+  SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/MoltenVK.framework/MoltenVK");
   SDL_SetMainReady();
   return main(argc, const_cast<const char **>(argv));
 }

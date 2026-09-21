@@ -49,6 +49,22 @@ elif [[ -d /usr/local/lib/MoltenVK.xcframework ]]; then
   rsync -a /usr/local/lib/MoltenVK.xcframework "$VENDOR/"
 fi
 
+# Xcode links -framework MoltenVK only when a flat framework sits on the search path.
+for cand in \
+  "$VENDOR/MoltenVK.xcframework/ios-arm64/MoltenVK.framework" \
+  "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework" \
+  "$LIBDIR/moltenvk/static/MoltenVK.xcframework/ios-arm64/MoltenVK.framework" \
+  "$LIBDIR/moltenvk/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework"
+do
+  if [[ -d "$cand" && -e "$cand/MoltenVK" ]]; then
+    rm -rf "$VENDOR/MoltenVK.framework"
+    mkdir -p "$VENDOR/MoltenVK.framework"
+    rsync -a "$cand/" "$VENDOR/MoltenVK.framework/"
+    echo "staged MoltenVK.framework"
+    break
+  fi
+done
+
 if [[ -d "$LIBDIR/python/Python.framework" ]]; then
   rsync -a "$LIBDIR/python/Python.framework" "$VENDOR/"
 fi
@@ -67,9 +83,9 @@ fi
 if [[ -f "$VENDOR/libtbb.dylib" ]]; then
   LDFLAGS+=" -ltbb"
 fi
-# MoltenVK is already linked into libblender.dylib. The staged file is an
-# xcframework, and Xcode's -framework MoltenVK only searches for a flat
-# MoltenVK.framework.
+if [[ -d "$VENDOR/MoltenVK.framework" ]]; then
+  LDFLAGS+=" -framework MoltenVK"
+fi
 if [[ -d "$VENDOR/Python.framework" ]]; then
   LDFLAGS+=" -framework Python"
 fi
