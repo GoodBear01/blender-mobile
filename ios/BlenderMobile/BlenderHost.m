@@ -52,11 +52,8 @@ static int (*g_blender_main)(int, char **);
     return;
   }
 #ifdef BLENDER_IOS_HAS_NATIVE
-  /* Load order: Python/SDL before libblender resolves @rpath deps. */
-  (void)[self loadBundleLib:@"libpython3.13.dylib"];
-  (void)[self loadBundleLib:@"Python.framework/Python"];
-  (void)[self loadBundleLib:@"libSDL3.dylib"];
-  (void)[self loadBundleLib:@"libtbb.dylib"];
+  /* libblender is already linked. Do not dlopen Python or SDL again.
+   * A second copy of libpython aborts during its startup constructors. */
   g_blender_main = blender_ios_main;
   return;
 #endif

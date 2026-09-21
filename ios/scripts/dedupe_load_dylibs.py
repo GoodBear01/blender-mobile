@@ -32,6 +32,22 @@ def dylib_name(blob: bytes) -> str:
     return blob[name_off:].split(b"\x00", 1)[0].decode("utf-8", "replace")
 
 
+LC_ID_DYLIB = 0xD
+LIBPYTHON = "@rpath/libpython3.13.dylib"
+
+
+def replace_load_name(blob, new_name):
+    name_off = struct.unpack_from("<I", blob, 8)[0]
+    raw = new_name.encode("utf-8") + b"\x00"
+    if name_off < 24 or name_off + len(raw) > len(blob):
+        return None
+    out = bytearray(blob)
+    out[name_off : name_off + len(raw)] = raw
+    for index in range(name_off + len(raw), len(out)):
+        out[index] = 0
+    return bytes(out)
+
+
 def extra_zlib(name: str, has_system_z: bool) -> bool:
     if not has_system_z or not name:
         return False
@@ -66,22 +82,37 @@ def rewrite_slice(data: bytearray, start: int) -> list[str]:
         names.append(name)
         if name == "/usr/lib/libz.1.dylib":
             has_system_z = True
+    install_id = ""
+    for blob in commands:
+        cmd = struct.unpack_from("<I", blob, 0)[0]
+        if cmd == LC_ID_DYLIB:
+            install_id = dylib_name(blob)
+            break
     kept = []
     removed = []
     seen = set()
+    changed = False
     for blob, name in zip(commands, names):
         cmd = struct.unpack_from("<I", blob, 0)[0]
         drop = False
+        if cmd in LOAD_CMDS and name and "Python.framework" in name:
+            rewritten = replace_load_name(blob, LIBPYTHON)
+            if rewritten is not None:
+                blob = rewritten
+                removed.append(f"{name} -> {LIBPYTHON}")
+                name = LIBPYTHON
+                changed = True
         if cmd in LOAD_CMDS and name:
-            if name in seen or extra_zlib(name, has_system_z):
+            if name == install_id or name in seen or extra_zlib(name, has_system_z):
                 drop = True
             else:
                 seen.add(name)
         if drop:
             removed.append(name)
+            changed = True
         else:
             kept.append(blob)
-    if not removed:
+    if not changed:
         return []
     new_cmds = b"".join(kept)
     if len(new_cmds) > sizeofcmds:

@@ -389,6 +389,20 @@ for dir in "$@"; do
   if [[ ${#bins[@]} -gt 0 ]]; then
     /usr/bin/python3 "$ROOT/ios/scripts/dedupe_load_dylibs.py" "${bins[@]}"
   fi
+  # One Python image. A framework copy plus libpython crashes in dyld at launch.
+  python_still=0
+  for bin in "${bins[@]}"; do
+    case "$bin" in
+      */Python.framework/*) continue ;;
+    esac
+    if otool -L "$bin" 2>/dev/null | grep -q 'Python.framework'; then
+      python_still=1
+    fi
+  done
+  if [[ "$python_still" == 0 && -d "$dir/Python.framework" ]]; then
+    rm -rf "$dir/Python.framework"
+    echo "Blender iOS: removed extra Python.framework so Python loads once"
+  fi
   if ! audit_rpath_libs "$dir" || ! audit_all_rpaths "$dir"; then
     echo "error: libblender.dylib has unsatisfied @rpath dependencies in $dir" >&2
     otool -L "$dir/libblender.dylib" >&2 || true
