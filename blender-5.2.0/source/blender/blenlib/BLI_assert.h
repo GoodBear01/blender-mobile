@@ -88,14 +88,23 @@ void _BLI_assert_unreachable_print(const char *file, int line, const char *funct
 
 /**
  * Indicates that this line of code should never be executed. If it is reached, it will abort in
- * debug builds and print an error in release builds.
+ * debug builds and print an error in release builds. On iOS the process keeps running so one bad
+ * enum does not quit the editor.
  */
-#define BLI_assert_unreachable() \
-  { \
-    _BLI_assert_unreachable_print(__FILE__, __LINE__, __func__); \
-    BLI_assert_msg(0, "This line of code is marked to be unreachable."); \
-  } \
-  ((void)0)
+#ifdef BLENDER_IOS
+#  define BLI_assert_unreachable() \
+    { \
+      _BLI_assert_unreachable_print(__FILE__, __LINE__, __func__); \
+    } \
+    ((void)0)
+#else
+#  define BLI_assert_unreachable() \
+    { \
+      _BLI_assert_unreachable_print(__FILE__, __LINE__, __func__); \
+      BLI_assert_msg(0, "This line of code is marked to be unreachable."); \
+    } \
+    ((void)0)
+#endif
 
 #ifdef __cplusplus
 

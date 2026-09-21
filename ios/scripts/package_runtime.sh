@@ -18,6 +18,14 @@ if [[ -d "$SRC_DATA" ]]; then
   rsync -a --exclude '*.blend1' "$SRC_DATA/" "$DEST/datafiles/"
 fi
 
+# Cycles lives in intern/ and is copied into scripts/addons_core at install time.
+CYCLES_ADDON="$ROOT/blender-5.2.0/intern/cycles/blender/addon"
+if [[ -f "$CYCLES_ADDON/__init__.py" ]]; then
+  mkdir -p "$DEST/scripts/addons_core/cycles"
+  rsync -a "$CYCLES_ADDON/" "$DEST/scripts/addons_core/cycles/"
+  echo "Blender iOS: staged Cycles add-on"
+fi
+
 STDLIB=""
 search_stdlib() {
   local root="$1"
@@ -53,5 +61,5 @@ else
   echo "error: Python stdlib encodings/__init__.py was not found under $PY_LIB or ios/.deps" >&2
   exit 1
 fi
-echo "5.2.0-ios-full3" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
+echo "5.2.0-ios-full4" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
 echo "Packed runtime into $DEST"

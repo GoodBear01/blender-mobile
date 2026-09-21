@@ -7,7 +7,7 @@
 extern int blender_ios_main(int argc, char **argv);
 #endif
 
-static NSString *const kRuntimeVersion = @"5.2.0-ios-full3";
+static NSString *const kRuntimeVersion = @"5.2.0-ios-full4";
 
 static void *g_blender_handle;
 static int (*g_blender_main)(int, char **);
