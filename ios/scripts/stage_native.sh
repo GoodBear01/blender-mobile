@@ -37,9 +37,40 @@ fi
 rsync -a "$LIBBLENDER" "$VENDOR/libblender.dylib"
 install_name_tool -id "@rpath/libblender.dylib" "$VENDOR/libblender.dylib" || true
 
-copy_if "$LIBDIR/sdl/lib/libSDL3.dylib"
-copy_if "$LIBDIR/python/lib/libpython3.13.dylib"
-copy_if "$LIBDIR/tbb/lib/libtbb.dylib"
+stage_dylib() {
+  local name="$1"
+  shift
+  local src="" cand
+  if [[ -f "$VENDOR/$name" ]]; then
+    return 0
+  fi
+  for cand in "$@"; do
+    if [[ -f "$cand" ]]; then
+      src="$cand"
+      break
+    fi
+  done
+  if [[ -z "$src" ]]; then
+    src="$(find "$LIBDIR" -name "$name" -o -name "${name%.dylib}.*.dylib" 2>/dev/null | head -n 1 || true)"
+  fi
+  if [[ -n "$src" && -f "$src" ]]; then
+    cp -f "$src" "$VENDOR/$name"
+    chmod u+w "$VENDOR/$name" || true
+    install_name_tool -id "@rpath/$name" "$VENDOR/$name" || true
+    echo "staged $name from $src"
+  else
+    echo "Blender iOS: $name was not found under $LIBDIR" >&2
+  fi
+}
+
+stage_dylib libSDL3.dylib \
+  "$LIBDIR/sdl/lib/libSDL3.dylib" \
+  "$LIBDIR/sdl/lib/libSDL3.0.dylib"
+stage_dylib libpython3.13.dylib \
+  "$LIBDIR/python/lib/libpython3.13.dylib"
+stage_dylib libtbb.dylib \
+  "$LIBDIR/tbb/lib/libtbb.dylib" \
+  "$LIBDIR/tbb/lib/libtbb.12.dylib"
 
 # Do not ship MoltenVK.framework. dyld abort_with_payloads on that bundle.
 rm -rf "$VENDOR/MoltenVK.framework" "$VENDOR/MoltenVK.xcframework"
