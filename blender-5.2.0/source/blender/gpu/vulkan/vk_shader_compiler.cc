@@ -179,6 +179,14 @@ static std::string patch_line_directives(std::string source)
   return source;
 }
 
+/* shaderc 2025.4+ exposes SetMaxIdBound; iOS still builds 2025.3. */
+template<typename Options> static void set_max_id_bound_if_available(Options &options)
+{
+  if constexpr (requires { options.SetMaxIdBound(0xffffff); }) {
+    options.SetMaxIdBound(0xffffff);
+  }
+}
+
 static bool compile_ex(shaderc::Compiler &compiler,
                        VKShader &shader,
                        shaderc_shader_kind stage,
@@ -235,7 +243,7 @@ static bool compile_ex(shaderc::Compiler &compiler,
    *
    * https://registry.khronos.org/SPIR-V/specs/1.0/SPIRV.html#_a_id_limits_a_universal_limits
    */
-  options.SetMaxIdBound(0xffffff);
+  set_max_id_bound_if_available(options);
 
   /* Should always be called after setting the optimization level. Setting optimization level
    * resets all previous passes. */
