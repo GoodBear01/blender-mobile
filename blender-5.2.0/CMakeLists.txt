@@ -80,7 +80,7 @@ blender_project_hack_pre()
 
 project(Blender)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_OSX_SYSROOT MATCHES "iPhoneOS")
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_OSX_SYSROOT MATCHES "iPhoneOS" OR CMAKE_BINARY_DIR MATCHES "build_ios")
   set(IOS TRUE CACHE BOOL "" FORCE)
 endif()
 

@@ -23,11 +23,11 @@ if ! cmake --build "$BUILD" --target blender --parallel; then
 fi
 LIB="$(find "$BUILD" \( -name 'libblender.dylib' -o -name 'libblender.so' \) -print -quit || true)"
 if [[ -z "$LIB" ]]; then
-  echo "libblender.dylib was not produced" >&2
-  echo "note: blender outputs under $BUILD:" >&2
+  echo "Blender iOS: libblender.dylib was not produced" >&2
   find "$BUILD" \( -name 'libblender*' -o -name 'Blender.app' -o -name 'blender' \) -print >&2 || true
   if [[ -d "$BUILD/bin/Blender.app" ]]; then
-    echo "error: ninja built a macOS Blender.app. CMAKE_SYSTEM_NAME is not iOS." >&2
+    echo "Blender iOS: ninja linked a macOS Blender.app. Delete build_ios and configure with CMAKE_SYSTEM_NAME=iOS." >&2
+    grep -E 'CMAKE_SYSTEM_NAME' "$BUILD/CMakeCache.txt" >&2 || true
   fi
   exit 1
 fi

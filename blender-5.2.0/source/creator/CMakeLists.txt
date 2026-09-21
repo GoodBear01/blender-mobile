@@ -295,7 +295,7 @@ endif()
 add_c_and_cxx_flags_custom_test(blender)
 
 # message(STATUS "Configuring blender")
-if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64")
+if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64" OR CMAKE_BINARY_DIR MATCHES "build_ios")
   add_library(blender SHARED ${SRC})
   set_target_properties(blender PROPERTIES
     OUTPUT_NAME blender

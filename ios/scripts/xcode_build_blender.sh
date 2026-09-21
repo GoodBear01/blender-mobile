@@ -10,8 +10,8 @@ elif [ -z "${ROOT:-}" ]; then
 fi
 export ROOT
 
-echo "note: ROOT=$ROOT"
-echo "note: SRCROOT=${SRCROOT:-}"
+echo "Blender iOS: ROOT=$ROOT"
+echo "Blender iOS: SRCROOT=${SRCROOT:-}"
 
 if [ ! -d "$ROOT/blender-5.2.0" ]; then
   echo "error: blender-5.2.0 not found next to ios/. Open ios/BlenderMobile.xcodeproj from the repo." >&2
@@ -42,30 +42,30 @@ export IOS_SCRIPTS="$WORK"
 # shellcheck source=xcode_env.sh
 . "$WORK/xcode_env.sh"
 
-echo "note: Compiling full Blender UI for iOS into $ROOT"
-echo "note: git=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-echo "note: First Xcode Run can take hours. Later Runs only rebuild what changed."
+echo "Blender iOS: compiling the editor into $ROOT"
+echo "Blender iOS: git=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+echo "Blender iOS: the first Run can take hours. Later Runs only rebuild what changed."
 
 if ! ensure_cmake_ninja; then
   exit 1
 fi
-echo "note: cmake=$(command -v cmake)"
-echo "note: ninja=$(command -v ninja)"
+echo "Blender iOS: cmake=$(command -v cmake)"
+echo "Blender iOS: ninja=$(command -v ninja)"
 
 LIBDIR_IOS="$ROOT/blender-5.2.0/lib/ios_arm64"
 if [ ! -f "$LIBDIR_IOS/python/.built" ] || [ ! -f "$LIBDIR_IOS/sdl/.built" ] \
     || { [ ! -e "$LIBDIR_IOS/vulkan/lib/libvulkan.a" ] && [ ! -e "$LIBDIR_IOS/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]; }; then
-  echo "note: Building iOS libraries (SDL, Python, MoltenVK)"
+  echo "Blender iOS: building SDL, Python, and MoltenVK"
   /bin/bash "$WORK/build_deps.sh"
 fi
 
 if [ ! -x "${HOST_TOOLS_DIR:-$ROOT/build_host_tools_macos}/makesrna" ]; then
-  echo "note: Building macOS host codegen tools"
+  echo "Blender iOS: building macOS host codegen tools"
   /bin/bash "$WORK/build_host_tools.sh"
 fi
 
 if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
-  echo "note: Packing Blender scripts and datafiles"
+  echo "Blender iOS: packing scripts and datafiles"
   /bin/bash "$WORK/package_runtime.sh"
 fi
 
@@ -78,11 +78,26 @@ exec xcrun --sdk iphoneos $_w "\$@"
 EOF
   chmod +x "$ROOT/ios/$_w"
 done
-# Stale Mac checkouts still contain options.SetMaxIdBound (shaderc 2025.3).
+# Stale Mac checkouts still call shaderc SetMaxIdBound, which 2025.3 does not have.
 SHADER_CC="$ROOT/blender-5.2.0/source/blender/gpu/vulkan/vk_shader_compiler.cc"
-if [ -f "$SHADER_CC" ] && grep -q 'options.SetMaxIdBound' "$SHADER_CC"; then
-  echo "Blender iOS: commenting out SetMaxIdBound for shaderc 2025.3"
-  /usr/bin/sed -i '' 's/options\.SetMaxIdBound/\/\/ options.SetMaxIdBound/' "$SHADER_CC"
+if [ -f "$SHADER_CC" ] && grep -q 'SetMaxIdBound' "$SHADER_CC"; then
+  /usr/bin/python3 - "$SHADER_CC" <<'PY'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8").splitlines(True)
+out = []
+changed = False
+for line in lines:
+    stripped = line.lstrip()
+    if "SetMaxIdBound" in line and not stripped.startswith(("//", "/*", "*")):
+        out.append("  /* SetMaxIdBound omitted: iOS shaderc 2025.3 has no such method */\n")
+        changed = True
+    else:
+        out.append(line)
+if changed:
+    path.write_text("".join(out), encoding="utf-8")
+    print("Blender iOS: removed SetMaxIdBound so shaderc 2025.3 can compile")
+PY
 fi
 CREATOR_CMAKE="$ROOT/blender-5.2.0/source/creator/CMakeLists.txt"
 if grep -q 'else# BLENDER_IOS_FORCE_DYLIB' "$CREATOR_CMAKE" 2>/dev/null; then
@@ -92,17 +107,30 @@ fi
 if [ -f "$WORK/force_ios_dylib.py" ]; then
   /usr/bin/python3 "$WORK/force_ios_dylib.py" "$CREATOR_CMAKE" || true
 fi
-if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] \
-    || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
-    || ! grep -qE 'libblender\.(dylib|so)|CXX_SHARED_LIBRARY_LINKER' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null \
-    || grep -q -- 'ld_classic' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
-    || grep -q 'fsmenu_system_macos.mm' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
-  echo "Blender iOS: configuring libblender"
-  rm -rf "$BUILD_IOS_DIR/CMakeCache.txt" "$BUILD_IOS_DIR/CMakeFiles" "$BUILD_IOS_DIR/build.ninja"
+# A Darwin cache or a Blender.app ninja graph must not be reused.
+NEED_CONFIG=0
+if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] || [ ! -f "$BUILD_IOS_DIR/CMakeCache.txt" ]; then
+  NEED_CONFIG=1
+fi
+if ! grep -q 'CMAKE_SYSTEM_NAME:STRING=iOS' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null; then
+  NEED_CONFIG=1
+fi
+if grep -q 'Blender.app' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
+  NEED_CONFIG=1
+fi
+if grep -q '/ios/clang' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null; then
+  NEED_CONFIG=1
+fi
+if grep -q 'fsmenu_system_macos.mm' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
+  NEED_CONFIG=1
+fi
+if [ "$NEED_CONFIG" = 1 ]; then
+  echo "Blender iOS: clearing the macOS ninja graph and configuring libblender.dylib"
+  rm -rf "$BUILD_IOS_DIR"
   /bin/bash "$WORK/configure_blender.sh"
 fi
 
-echo "note: Compiling libblender.dylib"
+echo "Blender iOS: compiling libblender.dylib"
 /bin/bash "$WORK/build_native.sh"
 /bin/bash "$WORK/stage_native.sh"
 
@@ -111,4 +139,4 @@ if [ ! -f "$ROOT/ios/Vendor/libblender.dylib" ]; then
   exit 1
 fi
 
-echo "note: Full Blender UI is ready for the app target"
+echo "Blender iOS: full editor library is ready for the app target"
