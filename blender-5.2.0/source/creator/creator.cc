@@ -786,21 +786,21 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 #endif
 
 #if defined(BLENDER_IOS)
-#  include <dlfcn.h>
+#  include <cstdio>
+#  include <exception>
 static int blender_ios_sdl_main(int argc, char *argv[])
 {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
-  /* Prefer an embedded dynamic MoltenVK. The static copy lives in libblender,
-   * which exports vkGetInstanceProcAddr for SDL to dlsym. */
-  if (dlopen("@rpath/MoltenVK.framework/MoltenVK", RTLD_NOW | RTLD_GLOBAL) != nullptr) {
-    SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/MoltenVK.framework/MoltenVK");
-  }
-  else {
-    SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/libblender.dylib");
-  }
+  /* Do not dlopen MoltenVK.framework. A bad image makes dyld raise SIGABRT. */
   SDL_SetMainReady();
-  return main(argc, const_cast<const char **>(argv));
+  try {
+    return main(argc, const_cast<const char **>(argv));
+  }
+  catch (const std::exception &ex) {
+    fprintf(stderr, "Blender iOS: %s\n", ex.what());
+    return 1;
+  }
 }
 
 /* Process main() stays in the Xcode app. SDL_RunApp starts UIKit, then this. */

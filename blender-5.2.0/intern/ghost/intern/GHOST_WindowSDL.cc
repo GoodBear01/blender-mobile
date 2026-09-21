@@ -40,10 +40,11 @@ GHOST_WindowSDL::GHOST_WindowSDL(GHOST_SystemSDL *system,
   if (type == GHOST_kDrawingContextTypeVulkan) {
     window_flags |= SDL_WINDOW_VULKAN;
 #ifdef BLENDER_MOBILE
-    /* Phone hosts are already a single fullscreen surface. */
-    window_flags |= SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED;
-#ifdef BLENDER_IOS
-    window_flags |= SDL_WINDOW_FULLSCREEN;
+    /* Phone hosts are already a single surface. FULLSCREEN and MAXIMIZED
+     * assert inside UIKit and raise SIGABRT during SDL_CreateWindow. */
+    window_flags |= SDL_WINDOW_BORDERLESS;
+#ifndef BLENDER_IOS
+    window_flags |= SDL_WINDOW_MAXIMIZED;
 #endif
 #endif
   }
