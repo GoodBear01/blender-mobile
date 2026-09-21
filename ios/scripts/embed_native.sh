@@ -68,8 +68,10 @@ if [[ -d "$VENDOR" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" && "${EXPANDED_CODE_
   done
 fi
 
-if [[ -d "$VENDOR/Runtime" ]]; then
-  rsync -a "$VENDOR/Runtime" "$RES/"
+if [[ -d "$VENDOR/Runtime/blender" ]]; then
+  mkdir -p "$RES/Runtime"
+  rsync -a --delete "$VENDOR/Runtime/" "$RES/Runtime/"
 elif [[ -d "$IOS_ROOT/BlenderMobile/Runtime/blender" ]]; then
-  rsync -a "$IOS_ROOT/BlenderMobile/Runtime" "$RES/"
+  mkdir -p "$RES/Runtime"
+  rsync -a --delete "$IOS_ROOT/BlenderMobile/Runtime/" "$RES/Runtime/"
 fi

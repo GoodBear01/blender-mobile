@@ -19,28 +19,39 @@ if [[ -d "$SRC_DATA" ]]; then
 fi
 
 STDLIB=""
+search_stdlib() {
+  local root="$1"
+  [[ -d "$root" ]] || return 0
+  local hit
+  hit="$(find "$root" -path '*/python3.13/encodings/__init__.py' -not -path '*simulator*' -print -quit 2>/dev/null || true)"
+  if [[ -n "$hit" ]]; then
+    dirname "$(dirname "$hit")"
+  fi
+}
 for cand in \
     "$PY_LIB/lib/python3.13" \
     "$PY_LIB/Python.xcframework/lib/python3.13" \
-    "$ROOT/ios/.deps/python-apple-support/Python.xcframework/lib/python3.13"; do
+    "$PY_LIB/Python.xcframework/ios-arm64/lib/python3.13" \
+    "$ROOT/ios/.deps/python-apple-support/Python.xcframework/lib/python3.13" \
+    "$ROOT/ios/.deps/python-apple-support/Python.xcframework/ios-arm64/lib/python3.13"; do
   if [[ -f "$cand/encodings/__init__.py" ]]; then
     STDLIB="$cand"
     break
   fi
 done
 if [[ -z "$STDLIB" ]]; then
-  STDLIB="$(find "$PY_LIB" "$ROOT/ios/.deps/python-apple-support" \
-    -path '*/python3.13/encodings/__init__.py' -not -path '*simulator*' -print -quit 2>/dev/null || true)"
-  if [[ -n "$STDLIB" ]]; then
-    STDLIB="$(dirname "$(dirname "$STDLIB")")"
-  fi
+  STDLIB="$(search_stdlib "$PY_LIB")"
+fi
+if [[ -z "$STDLIB" ]]; then
+  STDLIB="$(search_stdlib "$ROOT/ios/.deps")"
 fi
 if [[ -n "$STDLIB" ]]; then
   echo "Blender iOS: Python stdlib from $STDLIB"
   mkdir -p "$DEST/python/lib"
   rsync -a "$STDLIB/" "$DEST/python/lib/python3.13/"
 else
-  echo "Blender iOS: Python stdlib with encodings was not found" >&2
+  echo "error: Python stdlib encodings/__init__.py was not found under $PY_LIB or ios/.deps" >&2
+  exit 1
 fi
-echo "5.2.0-ios-full2" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
+echo "5.2.0-ios-full3" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
 echo "Packed runtime into $DEST"

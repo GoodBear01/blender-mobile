@@ -7,7 +7,7 @@
 extern int blender_ios_main(int argc, char **argv);
 #endif
 
-static NSString *const kRuntimeVersion = @"5.2.0-ios-full2";
+static NSString *const kRuntimeVersion = @"5.2.0-ios-full3";
 
 static void *g_blender_handle;
 static int (*g_blender_main)(int, char **);
@@ -95,14 +95,26 @@ static int (*g_blender_main)(int, char **);
                                                 encoding:NSUTF8StringEncoding
                                                    error:nil];
   NSURL *bundleRuntime = [[NSBundle mainBundle] URLForResource:@"Runtime" withExtension:nil];
-  if (bundleRuntime != nil && ![existing isEqualToString:kRuntimeVersion]) {
+  NSString *bundlePython = nil;
+  if (bundleRuntime != nil) {
+    bundlePython = [[[[bundleRuntime URLByAppendingPathComponent:@"blender"]
+        URLByAppendingPathComponent:@"5.2"]
+        URLByAppendingPathComponent:@"python"] path];
+  }
+  NSString *bundleEncodings =
+      [bundlePython stringByAppendingPathComponent:@"lib/python3.13/encodings/__init__.py"];
+  BOOL bundleHasPython = bundlePython != nil && [fm fileExistsAtPath:bundleEncodings];
+  NSString *docEncodings = [[[runtime URLByAppendingPathComponent:@"blender/5.2/python"]
+      URLByAppendingPathComponent:@"lib/python3.13/encodings/__init__.py"] path];
+  if (bundleRuntime != nil &&
+      (![existing isEqualToString:kRuntimeVersion] ||
+       (bundleHasPython && ![fm fileExistsAtPath:docEncodings]))) {
     [fm removeItemAtURL:runtime error:nil];
     [fm createDirectoryAtURL:runtime withIntermediateDirectories:YES attributes:nil error:nil];
     NSURL *from = [bundleRuntime URLByAppendingPathComponent:@"blender"];
     if ([fm fileExistsAtPath:from.path]) {
       [fm copyItemAtURL:from toURL:[runtime URLByAppendingPathComponent:@"blender"] error:nil];
     }
-    [kRuntimeVersion writeToURL:marker atomically:YES encoding:NSUTF8StringEncoding error:nil];
   }
 
   NSString *home = docs.path;
@@ -132,6 +144,7 @@ static int (*g_blender_main)(int, char **);
   if ([fm fileExistsAtPath:encodings]) {
     [self setEnv:"BLENDER_SYSTEM_PYTHON" value:pythonHome];
     [self setEnv:"PYTHONHOME" value:pythonHome];
+    [kRuntimeVersion writeToURL:marker atomically:YES encoding:NSUTF8StringEncoding error:nil];
     NSLog(@"BlenderHost: Python stdlib %@", pythonHome);
   }
   else {

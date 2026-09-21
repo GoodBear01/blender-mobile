@@ -508,6 +508,14 @@ if [[ ! -f "$LIBDIR/python/.built" || ! -f "$LIBDIR/python/lib/python3.13/encodi
     echo "note: stdlib from $(dirname "$STDLIB_PY")"
     rsync -a "$(dirname "$STDLIB_PY")/" "$LIBDIR/python/lib/python3.13/"
   fi
+  if [[ ! -f "$LIBDIR/python/lib/python3.13/encodings/__init__.py" ]]; then
+    ENC="$(find "$PY_SUPPORT" -path '*/python3.13/encodings/__init__.py' -not -path '*simulator*' -print -quit || true)"
+    if [[ -n "$ENC" ]]; then
+      echo "note: stdlib from $(dirname "$(dirname "$ENC")")"
+      mkdir -p "$LIBDIR/python/lib/python3.13"
+      rsync -a "$(dirname "$(dirname "$ENC")")/" "$LIBDIR/python/lib/python3.13/"
+    fi
+  fi
   XC="$(find "$PY_SUPPORT" -name 'Python.xcframework' | head -n 1 || true)"
   if [[ -d "$XC" ]]; then
     rsync -a "$XC" "$LIBDIR/python/"
@@ -520,6 +528,10 @@ if [[ ! -f "$LIBDIR/python/.built" || ! -f "$LIBDIR/python/lib/python3.13/encodi
   fi
   if [[ ! -e "$LIBDIR/python/lib/libpython3.13.a" && ! -e "$LIBDIR/python/lib/libpython3.13.dylib" ]]; then
     echo "error: Python.h is present but libpython3.13 is missing" >&2
+    exit 1
+  fi
+  if [[ ! -f "$LIBDIR/python/lib/python3.13/encodings/__init__.py" ]]; then
+    echo "error: Python stdlib is missing encodings/__init__.py" >&2
     exit 1
   fi
   date -Iseconds >"$LIBDIR/python/.built"

@@ -157,7 +157,8 @@ for staged in "$VENDOR"/*.dylib; do
 done
 
 if [[ -d "$ROOT/ios/BlenderMobile/Runtime/blender" ]]; then
-  rsync -a "$ROOT/ios/BlenderMobile/Runtime" "$VENDOR/Runtime"
+  mkdir -p "$VENDOR/Runtime"
+  rsync -a --delete "$ROOT/ios/BlenderMobile/Runtime/" "$VENDOR/Runtime/"
 fi
 
 LDFLAGS="-lblender -framework Metal -framework QuartzCore -framework CoreGraphics -framework UIKit -framework Foundation -framework GameController -framework AudioToolbox -framework AVFoundation -framework CoreHaptics -framework CoreMotion -framework OpenGLES"
