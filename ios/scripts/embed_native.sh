@@ -13,7 +13,8 @@ if [[ ! -f "$IOS_ROOT/scripts/xcode_build_blender.sh" ]]; then
   exit 1
 fi
 export ROOT="$(cd "$IOS_ROOT/.." && pwd)"
-VENDOR="$IOS_ROOT/Vendor"
+export IOS_ROOT IOS_VENDOR="$IOS_ROOT/Vendor"
+VENDOR="$IOS_VENDOR"
 mkdir -p "$VENDOR"
 DEST="${BUILT_PRODUCTS_DIR:?}/${FRAMEWORKS_FOLDER_PATH:?}"
 RES="${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:?}"
@@ -43,7 +44,7 @@ if [[ -d "$VENDOR" ]]; then
     [[ -f "$f" ]] || continue
     cp -f "$f" "$DEST/"
   done
-  rm -rf "$DEST/MoltenVK.framework" "$DEST/Python.framework"
+  rm -rf "$DEST/MoltenVK.framework"
   for f in "$VENDOR"/*.framework; do
     [[ -d "$f" ]] || continue
     case "$(basename "$f")" in
@@ -51,7 +52,7 @@ if [[ -d "$VENDOR" ]]; then
     esac
     rsync -a "$f" "$DEST/"
   done
-  rm -rf "$DEST/MoltenVK.framework" "$DEST/Python.framework"
+  rm -rf "$DEST/MoltenVK.framework"
 fi
 
 /bin/bash "$IOS_ROOT/scripts/fix_python_rpaths.sh" "$DEST"
