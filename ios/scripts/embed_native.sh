@@ -13,7 +13,7 @@ if [[ ! -f "$IOS_ROOT/scripts/xcode_build_blender.sh" ]]; then
   exit 1
 fi
 export ROOT="$(cd "$IOS_ROOT/.." && pwd)"
-export IOS_ROOT IOS_VENDOR="$IOS_ROOT/Vendor"
+export IOS_ROOT IOS_VENDOR="$IOS_ROOT/Vendor" BUILD="${BUILD_IOS:-$ROOT/build_ios}"
 VENDOR="$IOS_VENDOR"
 mkdir -p "$VENDOR"
 DEST="${BUILT_PRODUCTS_DIR:?}/${FRAMEWORKS_FOLDER_PATH:?}"
