@@ -1866,7 +1866,11 @@ const char *GHOST_ContextVK::getPlatformSpecificSurfaceExtension() const
 {
 #ifdef _WIN32
   return VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-#elif defined(__APPLE__) && !defined(BLENDER_IOS)
+#elif defined(BLENDER_IOS)
+  /* SDL_Vulkan_CreateSurface requires a Metal surface extension. VK_KHR_surface
+   * alone makes MoltenVK destroy the instance and Blender quit. */
+  return "VK_EXT_metal_surface";
+#elif defined(__APPLE__)
   return VK_EXT_METAL_SURFACE_EXTENSION_NAME;
 #else /* UNIX/Linux / Android / iOS */
   switch (platform_) {
@@ -1959,6 +1963,10 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
       const char *native_surface_extension_name = getPlatformSpecificSurfaceExtension();
       instance_vk.extensions.enable(VK_KHR_SURFACE_EXTENSION_NAME);
       instance_vk.extensions.enable(native_surface_extension_name);
+#ifdef BLENDER_IOS
+      instance_vk.extensions.enable("VK_MVK_ios_surface", true);
+      instance_vk.extensions.enable("VK_EXT_metal_surface", true);
+#endif
       /* X11 doesn't use the correct swapchain offset, flipping can squash the first frames.
        * Android WSI uses a minimal vkGetPhysicalDeviceSurfaceCapabilities2KHR stub; avoid the
        * maintenance1 / capabilities2 path on phones (Pixel, Samsung, etc.). */
@@ -1984,7 +1992,7 @@ GHOST_TSuccess GHOST_ContextVK::initializeDrawingContext()
       required_device_extensions.append(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(BLENDER_IOS)
     {
       uint32_t sdl_ext_count = 0;
       const char *const *sdl_exts = SDL_Vulkan_GetInstanceExtensions(&sdl_ext_count);

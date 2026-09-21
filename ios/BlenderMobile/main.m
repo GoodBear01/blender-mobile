@@ -6,9 +6,8 @@ int main(int argc, char *argv[])
 {
   @autoreleasepool {
     [BlenderHost prepareRuntime];
-    if ([BlenderHost canLaunchBlender]) {
-      return [BlenderHost runBlenderWithArgc:argc argv:argv];
-    }
+    /* Our app delegate adopts UIScene. SDL_RunApp installs a delegate that
+     * does not, and this SDK then refuses to launch. */
     return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
   }
 }
