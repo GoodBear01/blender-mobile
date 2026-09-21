@@ -495,6 +495,11 @@ if [[ ! -f "$LIBDIR/python/.built" || ! -f "$LIBDIR/python/lib/python3.13/encodi
   if [[ -n "$LIBPY" ]]; then
     echo "note: libpython from $LIBPY"
     cp -f "$LIBPY" "$LIBDIR/python/lib/$(basename "$LIBPY")"
+    if [[ -f "$LIBDIR/python/lib/libpython3.13.dylib" ]]; then
+      chmod u+w "$LIBDIR/python/lib/libpython3.13.dylib"
+      install_name_tool -id "@rpath/libpython3.13.dylib" \
+        "$LIBDIR/python/lib/libpython3.13.dylib" || true
+    fi
   fi
   if [[ -n "$FWBIN" && ! -e "$LIBDIR/python/lib/libpython3.13.dylib" && ! -e "$LIBDIR/python/lib/libpython3.13.a" ]]; then
     cp -f "$FWBIN" "$LIBDIR/python/lib/libpython3.13.dylib"

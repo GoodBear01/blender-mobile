@@ -160,11 +160,7 @@ fi
 # Do not add it to the app link line. A direct -framework/-lMoltenVK is what
 # dyld abort_with_payload is tripping on.
 
-if otool -L "$VENDOR/libblender.dylib" | grep -q 'Python.framework'; then
-  echo "error: libblender.dylib still loads Python.framework/Python" >&2
-  otool -L "$VENDOR/libblender.dylib" >&2
-  exit 1
-fi
+/bin/bash "$ROOT/ios/scripts/fix_python_rpaths.sh" "$VENDOR"
 
 echo "Blender iOS: libblender load commands:"
 otool -L "$VENDOR/libblender.dylib" || true
