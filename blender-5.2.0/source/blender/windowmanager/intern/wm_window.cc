@@ -21,6 +21,9 @@
 #ifdef __ANDROID__
 #  include <android/log.h>
 #endif
+#ifdef BLENDER_IOS
+#  include <cstdio>
+#endif
 
 #include "CLG_log.h"
 
@@ -781,6 +784,33 @@ void WM_window_dpi_set_userdef(const wmWindow *win)
   /* Widget unit is 20 pixels at 1X scale. This consists of 18 user-scaled units plus
    * left and right borders of line-width (pixel-size). */
   U.widget_unit = int(roundf(18.0f * U.scale_factor)) + (2 * pixelsize);
+
+#ifdef __ANDROID__
+  /* Keep widgets near 1/12 of the short side. The previous floor grew them
+   * until the editors no longer fit. Shrink an oversized scale as well. */
+  {
+    const int short_side = max_ii(1, min_ii(win->sizex, win->sizey));
+    const int target = min_ii(96, max_ii(64, short_side / 12));
+    if (U.widget_unit < target - 8 || U.widget_unit > target + 16) {
+      const float need = float(target) / float(max_ii(U.widget_unit, 1));
+      U.ui_scale = min_ff(1.80f, max_ff(0.90f, U.ui_scale * need));
+      U.dpi = auto_dpi * U.ui_scale * (72.0 / 96.0f);
+      pixelsize = max_ii(1, int(U.dpi / 64) + U.ui_line_width);
+      U.pixelsize = float(pixelsize);
+      U.virtual_pixel = (pixelsize == 1) ? VIRTUAL_PIXEL_NATIVE : VIRTUAL_PIXEL_DOUBLE;
+      U.scale_factor = U.dpi / 72.0f;
+      U.inv_scale_factor = 1.0f / U.scale_factor;
+      U.widget_unit = int(roundf(18.0f * U.scale_factor)) + (2 * pixelsize);
+    }
+  }
+  __android_log_print(ANDROID_LOG_INFO,
+                      "BlenderAndroid",
+                      "ui scale=%.2f dpi=%d widget=%d pixelsize=%d",
+                      U.ui_scale,
+                      U.dpi,
+                      U.widget_unit,
+                      pixelsize);
+#endif
 }
 
 float WM_window_dpi_get_scale(const wmWindow *win)
@@ -1055,12 +1085,17 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm,
   }
   if (ghost_window) {
     win->runtime->gpuctx = GPU_context_create(ghost_window, nullptr);
-#ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO,
-                        "BlenderAndroid",
-                        "window GPU_context_create ctx=%p",
-                        win->runtime->gpuctx);
+#ifdef BLENDER_IOS
+    fprintf(stderr, "Blender iOS: GPU context %p\n", win->runtime->gpuctx);
+    fflush(stderr);
 #endif
+    if (win->runtime->gpuctx == nullptr) {
+#ifdef BLENDER_IOS
+      fprintf(stderr, "Blender iOS: GPU context was not created\n");
+      fflush(stderr);
+#endif
+    }
+    else {
     GPU_render_begin();
 
     /* Needed so we can detect the graphics card below. */
@@ -1110,6 +1145,7 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm,
     GPU_clear_color(window_bg_color[0], window_bg_color[1], window_bg_color[2], 1.0f);
 
     GPU_render_end();
+    }
   }
   else {
     if (prev_windrawable != nullptr) {

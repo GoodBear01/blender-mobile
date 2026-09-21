@@ -787,7 +787,22 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 
 #if defined(BLENDER_IOS)
 #  include <cstdio>
+#  include <cstdlib>
 #  include <exception>
+#  include <execinfo.h>
+#  include <signal.h>
+#  include <unistd.h>
+
+static void blender_ios_crash(int sig)
+{
+  void *frames[48];
+  const int count = backtrace(frames, 48);
+  fprintf(stderr, "Blender iOS: signal %d\n", sig);
+  fflush(stderr);
+  backtrace_symbols_fd(frames, count, STDERR_FILENO);
+  _exit(128 + sig);
+}
+
 static int blender_ios_enter(int argc, char *argv[])
 {
   static int started = 0;
@@ -799,6 +814,9 @@ static int blender_ios_enter(int argc, char *argv[])
   started = 1;
   fprintf(stderr, "Blender iOS: entered\n");
   fflush(stderr);
+  signal(SIGSEGV, blender_ios_crash);
+  signal(SIGBUS, blender_ios_crash);
+  signal(SIGABRT, blender_ios_crash);
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
   /* Leave SDL_VULKAN_LIBRARY unset. On Apple, a hint skips the in-process

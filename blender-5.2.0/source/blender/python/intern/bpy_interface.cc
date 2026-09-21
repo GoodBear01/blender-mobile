@@ -585,6 +585,37 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
       }
     }
 
+#ifdef BLENDER_IOS
+    /* BeeWare bakes a GitHub runner path into libpython. Isolated mode ignores
+     * PYTHONHOME, so the stdlib directory has to be set on the config. */
+    {
+      const char *ios_py = BLI_getenv("BLENDER_SYSTEM_PYTHON");
+      if (ios_py != nullptr && ios_py[0] != '\0') {
+        char stdlib[FILE_MAX];
+        char dynload[FILE_MAX];
+        wchar_t wstdlib[FILE_MAX];
+        wchar_t wdynload[FILE_MAX];
+        BLI_path_join(stdlib, sizeof(stdlib), ios_py, "lib", "python3.13");
+        BLI_path_join(dynload, sizeof(dynload), stdlib, "lib-dynload");
+        fprintf(stderr, "Blender iOS: Python stdlib %s\n", stdlib);
+        fflush(stderr);
+        status = PyConfig_SetBytesString(&config, &config.home, ios_py);
+        pystatus_exit_on_error(status);
+        status = PyConfig_SetBytesString(&config, &config.stdlib_dir, stdlib);
+        pystatus_exit_on_error(status);
+        config.module_search_paths_set = 1;
+        BLI_strncpy_wchar_from_utf8(wstdlib, stdlib, ARRAY_SIZE(wstdlib));
+        BLI_strncpy_wchar_from_utf8(wdynload, dynload, ARRAY_SIZE(wdynload));
+        PyWideStringList_Append(&config.module_search_paths, wstdlib);
+        PyWideStringList_Append(&config.module_search_paths, wdynload);
+      }
+      else {
+        fprintf(stderr, "Blender iOS: BLENDER_SYSTEM_PYTHON is not set\n");
+        fflush(stderr);
+      }
+    }
+#endif
+
     /* Initialize Python (also acquires lock). */
     status = Py_InitializeFromConfig(&config);
     PyConfig_Clear(&config);
