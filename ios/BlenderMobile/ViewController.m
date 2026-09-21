@@ -16,10 +16,8 @@
   title.translatesAutoresizingMaskIntoConstraints = NO;
 
   UILabel *body = [[UILabel alloc] init];
-  body.text = @"Xcode is still compiling the editor, or the libblender "
-              @"target failed.\n\n"
-              @"In Xcode: Product → Run and wait. First time takes hours.\n"
-              @"Open the Report navigator and select the libblender target.";
+  body.text = @"Starting the Blender editor.\n\n"
+              @"The first launch can sit here while the window opens.";
   body.textColor = [UIColor colorWithWhite:0.82 alpha:1];
   body.font = [UIFont systemFontOfSize:16];
   body.numberOfLines = 0;

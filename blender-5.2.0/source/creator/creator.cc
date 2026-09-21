@@ -788,8 +788,15 @@ extern "C" __attribute__((used, visibility("default"))) int SDL_main(int argc, c
 #if defined(BLENDER_IOS)
 #  include <cstdio>
 #  include <exception>
-static int blender_ios_sdl_main(int argc, char *argv[])
+static int blender_ios_enter(int argc, char *argv[])
 {
+  static int started = 0;
+  if (started) {
+    fprintf(stderr, "Blender iOS: already running\n");
+    fflush(stderr);
+    return 0;
+  }
+  started = 1;
   fprintf(stderr, "Blender iOS: entered\n");
   fflush(stderr);
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
@@ -806,6 +813,18 @@ static int blender_ios_sdl_main(int argc, char *argv[])
     fprintf(stderr, "Blender iOS: %s\n", ex.what());
     return 1;
   }
+}
+
+static int blender_ios_sdl_main(int argc, char *argv[])
+{
+  return blender_ios_enter(argc, argv);
+}
+
+/* Used when UIKit already owns the process through a scene delegate. */
+extern "C" __attribute__((used, visibility("default"))) int blender_ios_start(int argc,
+                                                                             char *argv[])
+{
+  return blender_ios_enter(argc, argv);
 }
 
 /* Process main() stays in the Xcode app. SDL_RunApp starts UIKit, then this. */

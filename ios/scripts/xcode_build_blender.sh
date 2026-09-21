@@ -51,7 +51,7 @@ export IOS_SCRIPTS="$WORK"
 
 echo "Blender iOS: compiling the editor into $ROOT"
 echo "Blender iOS: git=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-echo "Blender iOS: the first Run can take hours. Later Runs only rebuild what changed."
+echo "Blender iOS: only files that changed are rebuilt."
 
 if ! ensure_cmake_ninja; then
   exit 1
