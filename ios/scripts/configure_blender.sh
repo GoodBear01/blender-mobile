@@ -56,6 +56,7 @@ cmake -S "$BLENDER" -B "$BUILD" \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_MAKE_PROGRAM="$NINJA_BIN" \
+  -DIOS=TRUE \
   -DLIBDIR="$LIBDIR" \
   -DHOST_TOOLS_DIR="$HOST_TOOLS_DIR" \
   -DPYTHON_EXECUTABLE="$PY3" \
@@ -67,8 +68,8 @@ if ! grep -q 'CMAKE_SYSTEM_NAME:STRING=iOS' "$BUILD/CMakeCache.txt"; then
   exit 1
 fi
 if ! grep -q 'libblender.dylib' "$BUILD/build.ninja"; then
-  echo "error: ninja graph is not linking libblender.dylib (macOS app graph?)" >&2
-  grep -E 'Blender.app|libblender' "$BUILD/build.ninja" | head -n 20 >&2 || true
+  echo "error: ninja graph is not linking libblender.dylib. Run: git fetch origin && git reset --hard origin/main && rm -rf build_ios" >&2
+  grep -E 'Blender.app|libblender|CXX_SHARED|CXX_EXECUTABLE' "$BUILD/build.ninja" | head -n 20 >&2 || true
   exit 1
 fi
 

@@ -349,7 +349,7 @@ elseif(ANDROID)
   target_link_libraries(blender PRIVATE android log EGL vulkan SDL3::SDL3)
   # Keep the C SDL_main that SDLActivity.java looks up with dlsym.
   target_link_options(blender PRIVATE "-Wl,-u,SDL_main")
-elseif(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+elseif(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS" OR LIBDIR MATCHES "ios_arm64")
   add_library(blender SHARED ${SRC})
   set_target_properties(blender PROPERTIES
     OUTPUT_NAME blender

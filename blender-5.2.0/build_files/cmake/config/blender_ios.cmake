@@ -10,6 +10,8 @@
 
 include(${CMAKE_CURRENT_LIST_DIR}/blender_lite.cmake)
 
+set(IOS ON CACHE BOOL "" FORCE)
+
 set(WITH_GHOST_SDL            ON  CACHE BOOL "" FORCE)
 set(WITH_BLENDER_THUMBNAILER  OFF CACHE BOOL "" FORCE)
 set(WITH_GHOST_X11            OFF CACHE BOOL "" FORCE)

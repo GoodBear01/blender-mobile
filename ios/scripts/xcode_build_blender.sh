@@ -70,13 +70,25 @@ if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
 fi
 
 BUILD_IOS_DIR="${BUILD_IOS:-$ROOT/build_ios}"
-rm -f "$ROOT/ios/clang" "$ROOT/ios/clang++" "$ROOT/ios/cc" "$ROOT/ios/c++"
+# Always keep working iPhone compiler wrappers at ios/clang++.
+for _w in clang clang++; do
+  cat >"$ROOT/ios/$_w" <<EOF
+#!/bin/bash
+exec xcrun --sdk iphoneos $_w "\$@"
+EOF
+  chmod +x "$ROOT/ios/$_w"
+done
+# Stale Mac checkouts still contain options.SetMaxIdBound (shaderc 2025.3).
+SHADER_CC="$ROOT/blender-5.2.0/source/blender/gpu/vulkan/vk_shader_compiler.cc"
+if [ -f "$SHADER_CC" ] && grep -q 'SetMaxIdBound' "$SHADER_CC"; then
+  echo "error: commenting out SetMaxIdBound for iOS shaderc 2025.3"
+  /usr/bin/sed -i '' 's/options\.SetMaxIdBound/\/\/ options.SetMaxIdBound/' "$SHADER_CC"
+fi
 if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] \
     || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
     || ! grep -q 'CMAKE_SYSTEM_NAME:STRING=iOS' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
     || ! grep -q 'libblender.dylib' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null \
     || grep -q -- 'ld_classic' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
-    || grep -q '/ios/clang++' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
     || grep -q 'fsmenu_system_macos.mm' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
   echo "note: Configuring libblender"
   rm -rf "$BUILD_IOS_DIR/CMakeCache.txt" "$BUILD_IOS_DIR/CMakeFiles" "$BUILD_IOS_DIR/build.ninja"

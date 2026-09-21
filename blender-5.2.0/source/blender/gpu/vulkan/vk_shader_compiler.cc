@@ -235,12 +235,10 @@ static bool compile_ex(shaderc::Compiler &compiler,
    *
    * https://registry.khronos.org/SPIR-V/specs/1.0/SPIRV.html#_a_id_limits_a_universal_limits
    *
-   * shaderc 2025.3 (iOS) has no SetMaxIdBound. Do not mention the method on
-   * Apple; BLENDER_IOS is not always in this target's preprocessor flags.
+   * Do not call SetMaxIdBound. iOS shaderc 2025.3 has no such method, and a
+   * preprocessor guard is not enough when this file is compiled from a stale
+   * Mac checkout.
    */
-#if !defined(__APPLE__)
-  options.SetMaxIdBound(0xffffff);
-#endif
 
   /* Should always be called after setting the optimization level. Setting optimization level
    * resets all previous passes. */

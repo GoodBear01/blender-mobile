@@ -1,0 +1,4 @@
+#!/bin/bash
+# iPhone C++ compiler. Xcode/CMake may invoke this path if a leftover cache
+# still names it; always use the iphoneos SDK.
+exec xcrun --sdk iphoneos clang++ "$@"
