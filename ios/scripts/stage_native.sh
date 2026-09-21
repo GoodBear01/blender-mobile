@@ -41,33 +41,52 @@ copy_if "$LIBDIR/sdl/lib/libSDL3.dylib"
 copy_if "$LIBDIR/python/lib/libpython3.13.dylib"
 copy_if "$LIBDIR/tbb/lib/libtbb.dylib"
 
-if [[ -d "$LIBDIR/moltenvk/MoltenVK.xcframework" ]]; then
-  rsync -a "$LIBDIR/moltenvk/MoltenVK.xcframework" "$VENDOR/"
-elif [[ -d /opt/homebrew/lib/MoltenVK.xcframework ]]; then
-  rsync -a /opt/homebrew/lib/MoltenVK.xcframework "$VENDOR/"
-elif [[ -d /usr/local/lib/MoltenVK.xcframework ]]; then
-  rsync -a /usr/local/lib/MoltenVK.xcframework "$VENDOR/"
-fi
+# Do not ship MoltenVK.framework. dyld abort_with_payloads on that bundle.
+rm -rf "$VENDOR/MoltenVK.framework" "$VENDOR/MoltenVK.xcframework"
 
-# Xcode links -framework MoltenVK only when a flat framework sits on the search path.
-for cand in \
-  "$VENDOR/MoltenVK.xcframework/ios-arm64/MoltenVK.framework" \
-  "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework" \
-  "$LIBDIR/moltenvk/static/MoltenVK.xcframework/ios-arm64/MoltenVK.framework" \
-  "$LIBDIR/moltenvk/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework"
-do
-  if [[ -d "$cand" && -e "$cand/MoltenVK" ]]; then
-    rm -rf "$VENDOR/MoltenVK.framework"
-    mkdir -p "$VENDOR/MoltenVK.framework"
-    rsync -a "$cand/" "$VENDOR/MoltenVK.framework/"
-    echo "staged MoltenVK.framework"
-    break
-  fi
+rewrite_load_commands() {
+  local lib="$1"
+  local dep base src
+  [[ -f "$lib" ]] || return 0
+  chmod u+w "$lib" || true
+  install_name_tool -id "@rpath/$(basename "$lib")" "$lib" || true
+  while IFS= read -r dep; do
+    dep="${dep%% (*}"
+    dep="$(printf '%s' "$dep" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    case "$dep" in
+      ""|/usr/lib/*|/System/*) continue ;;
+    esac
+    base="$(basename "$dep")"
+    if [[ "$base" == "MoltenVK" || "$dep" == *MoltenVK.framework* ]]; then
+      base="libMoltenVK.dylib"
+    fi
+    src=""
+    if [[ -f "$dep" ]]; then
+      src="$dep"
+    elif [[ -f "$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK" ]]; then
+      src="$LIBDIR/moltenvk/MoltenVK.xcframework/ios-arm64/MoltenVK.framework/MoltenVK"
+    fi
+    # Only ship Mach-O dylibs. A static archive copied as a .dylib makes dyld abort.
+    if [[ -n "$src" ]] && ! otool -hv "$src" 2>/dev/null | grep -q MH_DYLIB; then
+      src=""
+    fi
+    if [[ -n "$src" && ! -f "$VENDOR/$base" ]]; then
+      cp -f "$src" "$VENDOR/$base"
+      chmod u+w "$VENDOR/$base" || true
+      install_name_tool -id "@rpath/$base" "$VENDOR/$base" || true
+      echo "staged $base"
+    fi
+    if [[ -f "$VENDOR/$base" ]]; then
+      install_name_tool -change "$dep" "@rpath/$base" "$lib" || true
+    fi
+  done < <(otool -L "$lib" | tail -n +2)
+}
+
+rewrite_load_commands "$VENDOR/libblender.dylib"
+for staged in "$VENDOR"/*.dylib; do
+  [[ -f "$staged" ]] || continue
+  rewrite_load_commands "$staged"
 done
-
-if [[ -d "$LIBDIR/python/Python.framework" ]]; then
-  rsync -a "$LIBDIR/python/Python.framework" "$VENDOR/"
-fi
 
 if [[ -d "$ROOT/ios/BlenderMobile/Runtime/blender" ]]; then
   rsync -a "$ROOT/ios/BlenderMobile/Runtime" "$VENDOR/Runtime"
@@ -83,15 +102,8 @@ fi
 if [[ -f "$VENDOR/libtbb.dylib" ]]; then
   LDFLAGS+=" -ltbb"
 fi
-# A static MoltenVK.framework is already inside libblender. Linking it again
-# makes dyld abort_with_payload on launch. Only a real dynamic library is linked.
-MVK_BIN="$VENDOR/MoltenVK.framework/MoltenVK"
-if [[ -f "$MVK_BIN" ]] && otool -hv "$MVK_BIN" 2>/dev/null | grep -q MH_DYLIB; then
-  install_name_tool -id "@rpath/MoltenVK.framework/MoltenVK" "$MVK_BIN" || true
-  LDFLAGS+=" -framework MoltenVK"
-fi
-if [[ -d "$VENDOR/Python.framework" ]]; then
-  LDFLAGS+=" -framework Python"
+if [[ -f "$VENDOR/libMoltenVK.dylib" ]] && otool -hv "$VENDOR/libMoltenVK.dylib" 2>/dev/null | grep -q MH_DYLIB; then
+  LDFLAGS+=" -lMoltenVK"
 fi
 
 cat >"$VENDOR/Native.xcconfig" <<EOF
