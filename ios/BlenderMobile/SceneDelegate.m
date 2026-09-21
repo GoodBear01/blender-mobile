@@ -2,14 +2,27 @@
 #import "ViewController.h"
 #import "BlenderHost.h"
 
+@interface SceneDelegate ()
+@property (nonatomic, strong) id sdlSceneDelegate;
+@end
+
 @implementation SceneDelegate
 
 - (void)scene:(UIScene *)scene
     willConnectToSession:(UISceneSession *)session
                  options:(UISceneConnectionOptions *)connectionOptions
 {
-  (void)session;
-  (void)connectionOptions;
+  /* This SDK refuses to launch without a scene. Newer SDL builds own that
+   * scene themselves; older builds still need a window here. */
+  Class sdlClass = NSClassFromString(@"SDLUIKitSceneDelegate");
+  if (sdlClass != Nil) {
+    self.sdlSceneDelegate = [[sdlClass alloc] init];
+    if ([self.sdlSceneDelegate respondsToSelector:@selector(scene:willConnectToSession:options:)]) {
+      [self.sdlSceneDelegate scene:scene willConnectToSession:session options:connectionOptions];
+      return;
+    }
+  }
+
   if (![scene isKindOfClass:[UIWindowScene class]]) {
     return;
   }
