@@ -349,11 +349,14 @@ elseif(ANDROID)
   target_link_libraries(blender PRIVATE android log EGL vulkan SDL3::SDL3)
   # Keep the C SDL_main that SDLActivity.java looks up with dlsym.
   target_link_options(blender PRIVATE "-Wl,-u,SDL_main")
-elseif(IOS)
+elseif(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
   add_library(blender SHARED ${SRC})
   set_target_properties(blender PROPERTIES
     OUTPUT_NAME blender
     PREFIX "lib"
+    SUFFIX ".dylib"
+    FRAMEWORK OFF
+    MACOSX_BUNDLE OFF
     MACOSX_RPATH ON
     INSTALL_NAME_DIR "@rpath"
   )
@@ -452,6 +455,12 @@ elseif(WIN32)
     set(TARGETDIR_EXE ".")
   endif()
   set(TARGETDIR_SITE_PACKAGES "${TARGETDIR_VER}/python/lib/site-packages")
+elseif(IOS)
+  set(TARGETDIR_VER "${BLENDER_VERSION}")
+  set(TARGETDIR_LIB "lib")
+  set(TARGETDIR_TEXT ".")
+  set(TARGETDIR_SITE_PACKAGES "${TARGETDIR_VER}/python/lib/python${PYTHON_VERSION}/site-packages")
+  set_target_properties(blender PROPERTIES BUILD_WITH_INSTALL_RPATH true)
 elseif(APPLE)
   if(WITH_PYTHON_MODULE)
     if(WITH_INSTALL_PORTABLE)

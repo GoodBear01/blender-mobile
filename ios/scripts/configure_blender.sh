@@ -61,4 +61,15 @@ cmake -S "$BLENDER" -B "$BUILD" \
   -DPYTHON_EXECUTABLE="$PY3" \
   "$@"
 
+if ! grep -q 'CMAKE_SYSTEM_NAME:STRING=iOS' "$BUILD/CMakeCache.txt"; then
+  echo "error: configure did not set CMAKE_SYSTEM_NAME=iOS" >&2
+  grep CMAKE_SYSTEM_NAME "$BUILD/CMakeCache.txt" >&2 || true
+  exit 1
+fi
+if ! grep -q 'libblender.dylib' "$BUILD/build.ninja"; then
+  echo "error: ninja graph is not linking libblender.dylib (macOS app graph?)" >&2
+  grep -E 'Blender.app|libblender' "$BUILD/build.ninja" | head -n 20 >&2 || true
+  exit 1
+fi
+
 echo "Configured $BUILD. Next: ios/scripts/build_native.sh"

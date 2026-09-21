@@ -4,11 +4,13 @@
 #
 # Device-only iphoneos arm64 toolchain. Run this from a Mac with Xcode.
 
-set(CMAKE_SYSTEM_NAME iOS)
-set(CMAKE_SYSTEM_PROCESSOR arm64)
+set(CMAKE_SYSTEM_NAME iOS CACHE STRING "" FORCE)
+set(CMAKE_SYSTEM_PROCESSOR arm64 CACHE STRING "" FORCE)
 set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "" FORCE)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0" CACHE STRING "" FORCE)
-set(IOS TRUE)
+set(IOS TRUE CACHE BOOL "" FORCE)
+set(CMAKE_SHARED_LIBRARY_PREFIX "lib")
+set(CMAKE_SHARED_LIBRARY_SUFFIX ".dylib")
 
 execute_process(
   COMMAND xcrun --sdk iphoneos --show-sdk-path

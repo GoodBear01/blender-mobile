@@ -367,9 +367,8 @@ unset(_ios_extra_glob)
 set(PLATFORM_CFLAGS "-fPIC -fexceptions -frtti -funsigned-char -fno-strict-aliasing")
 set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -DBLENDER_IOS -DBLENDER_MOBILE")
 set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
-# Xcode 15+ ld does not rescan static archives the way classic ld does, so a
-# large libblender.dylib link dies with a generic "linker command failed".
-set(PLATFORM_LINKFLAGS "-Wl,-dead_strip -Wl,-ld_classic -Xlinker -no_warn_duplicate_libraries")
+# Current Xcode ignores -ld_classic. The new linker still accepts these.
+set(PLATFORM_LINKFLAGS "-Wl,-dead_strip -Xlinker -no_warn_duplicate_libraries")
 set(PLATFORM_LINKFLAGS_DEBUG "")
 
 set(WITH_INSTALL_PORTABLE ON)

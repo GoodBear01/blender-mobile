@@ -21,10 +21,20 @@ if ! cmake --build "$BUILD" --target blender --parallel; then
   cmake --build "$BUILD" --target blender -- -v -j1 || true
   exit 1
 fi
-LIB="$(find "$BUILD" -name 'libblender.dylib' -print -quit || true)"
+LIB="$(find "$BUILD" \( -name 'libblender.dylib' -o -name 'libblender.so' \) -print -quit || true)"
 if [[ -z "$LIB" ]]; then
   echo "libblender.dylib was not produced" >&2
+  echo "note: blender outputs under $BUILD:" >&2
+  find "$BUILD" \( -name 'libblender*' -o -name 'Blender.app' -o -name 'blender' \) -print >&2 || true
+  if [[ -d "$BUILD/bin/Blender.app" ]]; then
+    echo "error: ninja built a macOS Blender.app. CMAKE_SYSTEM_NAME is not iOS." >&2
+  fi
   exit 1
+fi
+if [[ "$LIB" == *.so ]]; then
+  DYLIB="${LIB%.so}.dylib"
+  ln -sfn "$(basename "$LIB")" "$DYLIB"
+  LIB="$DYLIB"
 fi
 echo "Native iOS Blender library: $LIB"
 echo "Next: ios/scripts/stage_native.sh && TEAM=... ./ios/scripts/install_device.sh"
