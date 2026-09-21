@@ -60,6 +60,18 @@ GHOST_WindowSDL::GHOST_WindowSDL(GHOST_SystemSDL *system,
   if (sdl_win_) {
     SDL_SetWindowPosition(sdl_win_, left, top);
   }
+#ifdef BLENDER_IOS
+  if (sdl_win_ != nullptr) {
+    const SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    SDL_Rect bounds = {0, 0, 0, 0};
+    if (SDL_GetDisplayBounds(display, &bounds) && bounds.w > 0 && bounds.h > 0) {
+      SDL_SetWindowSize(sdl_win_, bounds.w, bounds.h);
+      SDL_SetWindowPosition(sdl_win_, 0, 0);
+    }
+    SDL_ShowWindow(sdl_win_);
+    SDL_Log("Blender iOS: window %d x %d", bounds.w, bounds.h);
+  }
+#endif
 
   /* now set up the rendering context. */
   if (setDrawingContextType(type) == GHOST_kSuccess) {

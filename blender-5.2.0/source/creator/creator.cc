@@ -792,7 +792,8 @@ static int blender_ios_sdl_main(int argc, char *argv[])
 {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight Portrait");
-  /* Do not dlopen MoltenVK.framework. A bad image makes dyld raise SIGABRT. */
+  /* Static MoltenVK is inside libblender. Do not dlopen MoltenVK.framework. */
+  SDL_SetHint("SDL_VULKAN_LIBRARY", "@rpath/libblender.dylib");
   SDL_SetMainReady();
   try {
     return main(argc, const_cast<const char **>(argv));
