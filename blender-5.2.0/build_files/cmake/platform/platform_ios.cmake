@@ -182,10 +182,12 @@ if(EXISTS "${LIBDIR}/python/include/python3.13/Python.h")
   set(PYTHON_INCLUDE_DIR "${LIBDIR}/python/include/python3.13" CACHE PATH "" FORCE)
   set(PYTHON_INCLUDE_CONFIG_DIR "${LIBDIR}/python/include/python3.13" CACHE PATH "" FORCE)
 endif()
-if(EXISTS "${LIBDIR}/python/lib/libpython3.13.a")
-  set(PYTHON_LIBRARY "${LIBDIR}/python/lib/libpython3.13.a" CACHE FILEPATH "" FORCE)
-elseif(EXISTS "${LIBDIR}/python/lib/libpython3.13.dylib")
+# Prefer the BeeWare dylib/framework over a static libpython. A static
+# archive pulls every extension and fails the iOS link.
+if(EXISTS "${LIBDIR}/python/lib/libpython3.13.dylib")
   set(PYTHON_LIBRARY "${LIBDIR}/python/lib/libpython3.13.dylib" CACHE FILEPATH "" FORCE)
+elseif(EXISTS "${LIBDIR}/python/lib/libpython3.13.a")
+  set(PYTHON_LIBRARY "${LIBDIR}/python/lib/libpython3.13.a" CACHE FILEPATH "" FORCE)
 endif()
 if(EXISTS "${LIBDIR}/python/lib/python3.13/abc.py")
   set(PYTHON_LIBPATH "${LIBDIR}/python/lib" CACHE PATH "" FORCE)
@@ -297,30 +299,77 @@ if(DEFINED LIBDIR)
   without_system_libs_end()
 endif()
 
-# MoltenVK + UIKit. The Xcode app also embeds these frameworks.
+# MoltenVK, SDL3, and BeeWare Python all need these iOS frameworks.
 set(PLATFORM_LINKLIBS
   "-framework Foundation"
   "-framework UIKit"
   "-framework Metal"
+  "-framework MetalKit"
   "-framework QuartzCore"
   "-framework CoreGraphics"
   "-framework CoreFoundation"
+  "-framework CoreVideo"
+  "-framework CoreMedia"
+  "-framework CoreAudio"
+  "-framework IOSurface"
+  "-framework ImageIO"
+  "-framework Security"
+  "-framework SystemConfiguration"
+  "-framework CFNetwork"
   "-framework GameController"
   "-framework AudioToolbox"
   "-framework AVFoundation"
   "-framework CoreHaptics"
   "-framework CoreMotion"
   "-framework OpenGLES"
+  "-framework UniformTypeIdentifiers"
+  iconv
+  z
+  objc
   m
   c++
 )
+
+# Static deps are not always exported through CMake imported targets.
+foreach(_ios_extra_lib
+    "${LIBDIR}/zlib/lib/libz.a"
+    "${LIBDIR}/jpeg/lib/libjpeg.a"
+    "${LIBDIR}/png/lib/libpng.a"
+    "${LIBDIR}/png/lib/libpng16.a"
+    "${LIBDIR}/tiff/lib/libtiff.a"
+    "${LIBDIR}/fmt/lib/libfmt.a"
+    "${LIBDIR}/freetype/lib/libfreetype.a"
+    "${LIBDIR}/zstd/lib/libzstd.a"
+    "${LIBDIR}/brotli/lib/libbrotlidec.a"
+    "${LIBDIR}/brotli/lib/libbrotlicommon.a"
+    "${LIBDIR}/yaml-cpp/lib/libyaml-cpp.a"
+    "${LIBDIR}/expat/lib/libexpat.a"
+    "${LIBDIR}/pystring/lib/libpystring.a"
+    "${LIBDIR}/minizip-ng/lib/libminizip.a"
+    "${LIBDIR}/shaderc/lib/libshaderc_combined.a"
+    "${LIBDIR}/shaderc/lib/libshaderc.a")
+  if(EXISTS "${_ios_extra_lib}")
+    list(APPEND PLATFORM_LINKLIBS "${_ios_extra_lib}")
+  endif()
+endforeach()
+unset(_ios_extra_lib)
+foreach(_ios_extra_dir imath openexr openimageio opencolorio)
+  if(EXISTS "${LIBDIR}/${_ios_extra_dir}/lib")
+    file(GLOB _ios_extra_glob "${LIBDIR}/${_ios_extra_dir}/lib/*.a")
+    list(APPEND PLATFORM_LINKLIBS ${_ios_extra_glob})
+  endif()
+endforeach()
+unset(_ios_extra_dir)
+unset(_ios_extra_glob)
 
 # DNA stores bitflags in char. Apple Clang defaults to signed char, so
 # enumerators like (1 << 7) fail with -Wc++11-narrowing.
 set(PLATFORM_CFLAGS "-fPIC -fexceptions -frtti -funsigned-char -fno-strict-aliasing")
 set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -DBLENDER_IOS -DBLENDER_MOBILE")
 set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
-set(PLATFORM_LINKFLAGS "-Wl,-dead_strip")
+# Xcode 15+ ld does not rescan static archives the way classic ld does, so a
+# large libblender.dylib link dies with a generic "linker command failed".
+set(PLATFORM_LINKFLAGS "-Wl,-dead_strip -Wl,-ld_classic -Xlinker -no_warn_duplicate_libraries")
 set(PLATFORM_LINKFLAGS_DEBUG "")
 
 set(WITH_INSTALL_PORTABLE ON)

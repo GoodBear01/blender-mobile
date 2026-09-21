@@ -70,8 +70,11 @@ if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ]; then
 fi
 
 BUILD_IOS_DIR="${BUILD_IOS:-$ROOT/build_ios}"
+rm -f "$ROOT/ios/clang" "$ROOT/ios/clang++" "$ROOT/ios/cc" "$ROOT/ios/c++"
 if [ ! -f "$BUILD_IOS_DIR/build.ninja" ] \
     || ! grep -q -- '-funsigned-char' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
+    || ! grep -q -- 'ld_classic' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
+    || grep -q '/ios/clang++' "$BUILD_IOS_DIR/CMakeCache.txt" 2>/dev/null \
     || grep -q 'fsmenu_system_macos.mm' "$BUILD_IOS_DIR/build.ninja" 2>/dev/null; then
   echo "note: Configuring libblender"
   rm -f "$BUILD_IOS_DIR/CMakeCache.txt"

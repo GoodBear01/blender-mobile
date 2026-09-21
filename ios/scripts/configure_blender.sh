@@ -38,12 +38,21 @@ if [ -z "$PY3" ] && [ -x /usr/bin/python3 ]; then
   PY3=/usr/bin/python3
 fi
 IOS_SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+IOS_CC="$(xcrun --sdk iphoneos -f clang)"
+IOS_CXX="$(xcrun --sdk iphoneos -f clang++)"
+# A leftover wrapper at ios/clang++ makes Xcode report every ld failure as
+# ios/clang++:1:1 and can drop the iPhone sysroot on the link line.
+rm -f "$ROOT/ios/clang" "$ROOT/ios/clang++" "$ROOT/ios/cc" "$ROOT/ios/c++"
 cmake -S "$BLENDER" -B "$BUILD" \
   -G Ninja \
   -C "$PRESET" \
   -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
   -DCMAKE_SYSTEM_NAME=iOS \
   -DCMAKE_OSX_SYSROOT="$IOS_SDK" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+  -DCMAKE_C_COMPILER="$IOS_CC" \
+  -DCMAKE_CXX_COMPILER="$IOS_CXX" \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_MAKE_PROGRAM="$NINJA_BIN" \

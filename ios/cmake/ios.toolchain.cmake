@@ -21,6 +21,25 @@ endif()
 set(CMAKE_OSX_SYSROOT "${_ios_sdk}" CACHE PATH "" FORCE)
 unset(_ios_sdk)
 
+execute_process(
+  COMMAND xcrun --sdk iphoneos -f clang
+  OUTPUT_VARIABLE _ios_cc
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+  COMMAND xcrun --sdk iphoneos -f clang++
+  OUTPUT_VARIABLE _ios_cxx
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(_ios_cc)
+  set(CMAKE_C_COMPILER "${_ios_cc}" CACHE FILEPATH "" FORCE)
+endif()
+if(_ios_cxx)
+  set(CMAKE_CXX_COMPILER "${_ios_cxx}" CACHE FILEPATH "" FORCE)
+endif()
+unset(_ios_cc)
+unset(_ios_cxx)
+
 set(CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH NO)
 set(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE NO)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)

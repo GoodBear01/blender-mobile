@@ -16,7 +16,11 @@ if [[ ! -f "$BUILD/CMakeCache.txt" ]]; then
   "${IOS_SCRIPTS:-$ROOT/ios/scripts}/configure_blender.sh"
 fi
 
-cmake --build "$BUILD" --target blender --parallel
+if ! cmake --build "$BUILD" --target blender --parallel; then
+  echo "error: libblender compile/link failed. Retrying the failed step with -v:" >&2
+  cmake --build "$BUILD" --target blender -- -v -j1 || true
+  exit 1
+fi
 LIB="$(find "$BUILD" -name 'libblender.dylib' -print -quit || true)"
 if [[ -z "$LIB" ]]; then
   echo "libblender.dylib was not produced" >&2
