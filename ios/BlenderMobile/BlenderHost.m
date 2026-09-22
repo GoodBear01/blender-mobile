@@ -7,7 +7,7 @@
 extern int blender_ios_main(int argc, char **argv);
 #endif
 
-static NSString *const kRuntimeVersion = @"5.2.0-ios-full5";
+static NSString *const kRuntimeVersion = @"5.2.0-ios-full6";
 
 static void *g_blender_handle;
 static int (*g_blender_main)(int, char **);
@@ -121,7 +121,8 @@ static int (*g_blender_main)(int, char **);
   NSString *resources = [runtime URLByAppendingPathComponent:@"blender/5.2"].path;
   NSString *pythonHome = [resources stringByAppendingPathComponent:@"python"];
   NSString *encodings = [pythonHome stringByAppendingPathComponent:@"lib/python3.13/encodings/__init__.py"];
-  if (![fm fileExistsAtPath:encodings] && bundleRuntime != nil) {
+  /* C extensions such as math and _opcode must be loaded from the signed app bundle. */
+  if (bundleRuntime != nil) {
     NSString *bundled = [[[[bundleRuntime URLByAppendingPathComponent:@"blender"]
         URLByAppendingPathComponent:@"5.2"]
         URLByAppendingPathComponent:@"python"] path];

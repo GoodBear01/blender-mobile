@@ -626,7 +626,11 @@ void VKFrameBuffer::rendering_ensure_dynamic_rendering(VKContext &context,
     uint32_t layer_base = max_ii(attachment.layer, 0);
     GPUAttachmentState attachment_state = attachment_states_[color_attachment_index];
     VkFormat vk_format = to_vk_format(color_texture.device_format_get());
-    if (attachment_state == GPU_ATTACHMENT_WRITE) {
+    /* MoltenVK rejects VK_FORMAT_UNDEFINED. Bind the real image whenever the
+     * unused-attachment extension is missing. */
+    const bool bind_image = attachment_state == GPU_ATTACHMENT_WRITE ||
+                            !extensions.dynamic_rendering_unused_attachments;
+    if (bind_image) {
       VKImageViewInfo image_view_info = {
           eImageViewUsage::Attachment,
           IndexRange(layer_base,
@@ -656,10 +660,7 @@ void VKFrameBuffer::rendering_ensure_dynamic_rendering(VKContext &context,
           1,
           layer_base,
           uint32_t(max_ii(layer_count - layer_base, 1))}});
-    color_attachment_formats_.append(
-        (!extensions.dynamic_rendering_unused_attachments && vk_image_view == VK_NULL_HANDLE) ?
-            VK_FORMAT_UNDEFINED :
-            vk_format);
+    color_attachment_formats_.append(vk_format);
   }
   uint32_t color_attachment_size = uint32_t(max_filled_slot_index + 1);
   color_attachment_formats_.resize(color_attachment_size);
@@ -687,7 +688,10 @@ void VKFrameBuffer::rendering_ensure_dynamic_rendering(VKContext &context,
                                         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     GPUAttachmentState attachment_state = attachment_states_[GPU_FB_DEPTH_ATTACHMENT];
     VkImageView depth_image_view = VK_NULL_HANDLE;
-    if (attachment_state == GPU_ATTACHMENT_WRITE) {
+    const bool bind_depth = attachment_state == GPU_ATTACHMENT_WRITE ||
+                            !extensions.dynamic_rendering_unused_attachments;
+    VkFormat vk_format = to_vk_format(depth_texture.device_format_get());
+    if (bind_depth) {
       VKImageViewInfo image_view_info = {eImageViewUsage::Attachment,
                                          IndexRange(max_ii(attachment.layer, 0), 1),
                                          IndexRange(attachment.mip, 1),
@@ -695,12 +699,12 @@ void VKFrameBuffer::rendering_ensure_dynamic_rendering(VKContext &context,
                                          is_stencil_attachment,
                                          false,
                                          VKImageViewArrayed::DONT_CARE};
-      depth_image_view = depth_texture.image_view_get(image_view_info).vk_handle();
+      const VKImageView &image_view = depth_texture.image_view_get(image_view_info);
+      depth_image_view = image_view.vk_handle();
+      if (image_view.vk_format() != VK_FORMAT_UNDEFINED) {
+        vk_format = image_view.vk_format();
+      }
     }
-    VkFormat vk_format = (!extensions.dynamic_rendering_unused_attachments &&
-                          depth_image_view == VK_NULL_HANDLE) ?
-                             VK_FORMAT_UNDEFINED :
-                             to_vk_format(depth_texture.device_format_get());
 
     /* TODO: we should be able to use a single attachment info and only set the
      * #pDepthAttachment/#pStencilAttachment to the same struct.

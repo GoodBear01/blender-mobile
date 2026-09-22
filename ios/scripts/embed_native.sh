@@ -75,3 +75,10 @@ elif [[ -d "$IOS_ROOT/BlenderMobile/Runtime/blender" ]]; then
   mkdir -p "$RES/Runtime"
   rsync -a --delete "$IOS_ROOT/BlenderMobile/Runtime/" "$RES/Runtime/"
 fi
+
+if [[ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" && "${EXPANDED_CODE_SIGN_IDENTITY}" != "-" ]]; then
+  while IFS= read -r ext; do
+    [[ -f "$ext" ]] || continue
+    codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --timestamp=none "$ext" || true
+  done < <(find "$RES/Runtime" \( -name '*.so' -o -name '*.dylib' \) -type f 2>/dev/null || true)
+fi

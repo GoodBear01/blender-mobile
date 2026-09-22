@@ -55,11 +55,25 @@ if [[ -z "$STDLIB" ]]; then
 fi
 if [[ -n "$STDLIB" ]]; then
   echo "Blender iOS: Python stdlib from $STDLIB"
-  mkdir -p "$DEST/python/lib"
+  mkdir -p "$DEST/python/lib/python3.13"
   rsync -a "$STDLIB/" "$DEST/python/lib/python3.13/"
+  DYN=""
+  if [[ -d "$STDLIB/lib-dynload" ]]; then
+    DYN="$STDLIB/lib-dynload"
+  else
+    DYN="$(find "$(dirname "$STDLIB")" "$PY_LIB" "$ROOT/ios/.deps" \
+      -type d -name lib-dynload -not -path '*simulator*' -print -quit 2>/dev/null || true)"
+  fi
+  if [[ -n "$DYN" && -d "$DYN" ]]; then
+    echo "Blender iOS: Python lib-dynload from $DYN"
+    mkdir -p "$DEST/python/lib/python3.13/lib-dynload"
+    rsync -a "$DYN/" "$DEST/python/lib/python3.13/lib-dynload/"
+  else
+    echo "Blender iOS: no Python lib-dynload directory found" >&2
+  fi
 else
   echo "error: Python stdlib encodings/__init__.py was not found under $PY_LIB or ios/.deps" >&2
   exit 1
 fi
-echo "5.2.0-ios-full5" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
+echo "5.2.0-ios-full6" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
 echo "Packed runtime into $DEST"
