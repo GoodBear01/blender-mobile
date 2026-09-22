@@ -73,7 +73,8 @@ fi
 
 if [ ! -d "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts" ] \
     || [ ! -f "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/python/lib/python3.13/encodings/__init__.py" ] \
-    || [ ! -f "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts/addons_core/cycles/__init__.py" ]; then
+    || [ ! -f "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/scripts/addons_core/cycles/__init__.py" ] \
+    || [ ! -f "$ROOT/ios/BlenderMobile/Runtime/blender/5.2/datafiles/fonts/Inter.woff2" ]; then
   echo "Blender iOS: packing scripts, datafiles, and the Python standard library"
   /bin/bash "$WORK/package_runtime.sh"
 fi

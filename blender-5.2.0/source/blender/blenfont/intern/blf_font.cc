@@ -163,6 +163,9 @@ static ft_pix blf_unscaled_F26Dot6_to_pixels(FontBLF *font, const FT_Pos value)
 {
   std::lock_guard lock(ft_cache_size_mutex);
   blf_ensure_size(font);
+  if (font->ft_size == nullptr) {
+    return ft_pix(0);
+  }
 
   /* Scale value by font size using integer-optimized multiplication. */
   FT_Long scaled = FT_MulFix(value, font->ft_size->metrics.x_scale);
@@ -1725,6 +1728,9 @@ static ft_pix blf_font_height_max_ft_pix(FontBLF *font)
 {
   std::lock_guard lock(ft_cache_size_mutex);
   blf_ensure_size(font);
+  if (font->ft_size == nullptr) {
+    return ft_pix_from_int(1);
+  }
   /* #Metrics::height is rounded to pixel. Force minimum of one pixel. */
   return std::max(ft_pix(font->ft_size->metrics.height), ft_pix_from_int(1));
 }
@@ -1738,6 +1744,9 @@ static ft_pix blf_font_width_max_ft_pix(FontBLF *font)
 {
   std::lock_guard lock(ft_cache_size_mutex);
   blf_ensure_size(font);
+  if (font->ft_size == nullptr) {
+    return ft_pix_from_int(1);
+  }
   /* #Metrics::max_advance is rounded to pixel. Force minimum of one pixel. */
   return std::max(ft_pix(font->ft_size->metrics.max_advance), ft_pix_from_int(1));
 }
@@ -1751,6 +1760,9 @@ int blf_font_descender(FontBLF *font)
 {
   std::lock_guard lock(ft_cache_size_mutex);
   blf_ensure_size(font);
+  if (font->ft_size == nullptr) {
+    return 0;
+  }
   return ft_pix_to_int(ft_pix(font->ft_size->metrics.descender));
 }
 
@@ -1758,6 +1770,9 @@ int blf_font_ascender(FontBLF *font)
 {
   std::lock_guard lock(ft_cache_size_mutex);
   blf_ensure_size(font);
+  if (font->ft_size == nullptr) {
+    return 1;
+  }
   return ft_pix_to_int(ft_pix(font->ft_size->metrics.ascender));
 }
 
@@ -2321,7 +2336,9 @@ void blf_ensure_size(FontBLF *font)
     return;
   }
 
-  BLI_assert_unreachable();
+  /* Missing font files (common on a partial mobile runtime) must not abort. */
+  font->ft_size = nullptr;
+  font->flags |= BLF_BAD_FONT;
 }
 
 bool blf_font_size(FontBLF *font, float size)

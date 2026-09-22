@@ -111,16 +111,22 @@ static GlyphCacheBLF *blf_glyph_cache_new(FontBLF *font)
   blf_ensure_size(font);
 
   /* Determine ideal fixed-width size for monospaced output. */
-  FT_UInt gindex = blf_get_char_index(font, U'0');
+  FT_UInt gindex = 0;
+  if (font->ft_size && font->face) {
+    gindex = blf_get_char_index(font, U'0');
+  }
   if (gindex && font->face) {
     FT_Fixed advance = 0;
     FT_Get_Advance(font->face, gindex, FT_LOAD_NO_HINTING, &advance);
     /* Use CSS 'ch unit' width, advance of zero character. */
     gc->fixed_width = int(advance >> 16);
   }
-  else {
-    /* Font does not have a face or does not contain "0" so use CSS fallback of 1/2 of em. */
+  else if (font->ft_size) {
+    /* Font does not contain "0" so use CSS fallback of 1/2 of em. */
     gc->fixed_width = int((font->ft_size->metrics.height / 2) >> 6);
+  }
+  else {
+    gc->fixed_width = 8;
   }
   gc->fixed_width = std::max(gc->fixed_width, 1);
 
@@ -1264,6 +1270,9 @@ static FT_GlyphSlot blf_glyph_render(FontBLF *settings_font,
   }
 
   blf_ensure_size(glyph_font);
+  if (glyph_font->ft_size == nullptr || glyph_font->face == nullptr) {
+    return nullptr;
+  }
 
   /* Default style values of the font containing the glyph. */
   float weight = glyph_font->metrics.weight;

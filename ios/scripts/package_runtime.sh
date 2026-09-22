@@ -61,5 +61,5 @@ else
   echo "error: Python stdlib encodings/__init__.py was not found under $PY_LIB or ios/.deps" >&2
   exit 1
 fi
-echo "5.2.0-ios-full4" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
+echo "5.2.0-ios-full5" >"$ROOT/ios/BlenderMobile/Runtime/runtime_version.txt"
 echo "Packed runtime into $DEST"
